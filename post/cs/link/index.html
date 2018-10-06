@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="generator" content="Hugo 0.49" />
+  <meta name="author" content="Check King">
+
+  
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Merriweather:400,700%7cOpen&#43;Sans:400,400italic,700%7cRoboto&#43;Mono%25!%28EXTRA%20*hugolib.PageOutput=Page%28/post/cs/link.md%29%29">
+  <link rel="stylesheet" href="/styles.css">
+  
+
+  
+
+  
+  <link rel="alternate" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  <link rel="feed" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/img/favicon/site.webmanifest">
+  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="icon" type="image/png" href="/img/icon.png">
+  <link rel="apple-touch-icon" type="image/png" href="/img/icon-192.png">
+
+  <link rel="canonical" href="https://checkking.github.io/post/cs/link/">
+
+  <meta property="twitter:card" content="summary_large_image">
+  
+  <meta property="twitter:site" content="@">
+  <meta property="twitter:creator" content="@">
+  
+  <meta property="og:site_name" content="Check King&#39;s Blog">
+  <meta property="og:url" content="https://checkking.github.io/post/cs/link/">
+  <meta property="og:title" content="硬连接和软连接 | Check King&#39;s Blog">
+  <meta property="og:locale" content="en-us">
+  
+  <meta property="article:published_time" content="2017-04-24T21:07:16&#43;08:00">
+  
+  <meta property="article:modified_time" content="2017-04-24T21:07:16&#43;08:00">
+  
+
+  <title>硬连接和软连接 | Check King&#39;s Blog</title>
+
+  
+
+</head>
+<body>
+
+<style type="text/css">
+
+.masthead-hero {
+  background-image: url("https://checkking.github.io/img/hero.jpg");
+}
+</style>
+
+<div class="masthead-hero"></div>
+
+
+<div id="main" role="main">
+  <div class="sidebar sticky" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <div class="author-avatar">
+    <a href="/">
+      <img src="/img/avatar.png" alt="Check King" itemprop="image">
+    </a>
+  </div>
+  <div class="author-content">
+    <h3 class="author-name" itemprop="name">Check King</h3>
+    <p class="author-bio" itemprop="description">A backend programmer.</p>
+  </div>
+  <div class="author-urls-wrapper">
+    <ul class="author-urls social-icons" aria-hidden="true">
+      <li itemprop="homeLocation" itemscope itemtype="http://schema.org/Place">
+        <span itemprop="name">Shenzhen China</span>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-instagram"></i>
+          Instagram
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-linkedin"></i>
+          LinkedIn
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-twitter"></i>
+          Twitter
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="//github.com/checkking" target="_blank" rel="noopener">
+          <i class="fa fa-github"></i>
+          Github
+        </a>
+      </li>
+      
+    </ul>  
+  </div>
+</div>
+
+  <article class="page">
+		<div class="page_container">
+			<section class="page_content">
+				<div class="navbar-hero">
+	<nav>
+		<a href="/">Home</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/projects">Projects</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/blog">Blog</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/about">About</a>
+	</nav>
+</div>
+				<article class="post" itemscope itemtype="http://schema.org/Article">
+  <div class="post-container">
+    <h1 itemprop="name"><a href="https://checkking.github.io/post/cs/link/">硬连接和软连接</a></h1>
+
+    
+      
+
+<div class="post-metadata">
+
+  <span class="post-date">
+    
+    <time datetime="2017-04-24 21:07:16 &#43;0800 CST" itemprop="datePublished dateModified">
+      Apr 24, 2017
+    </time>
+  </span>
+
+  
+
+</div>
+
+    
+
+    <div class="post-style" itemprop="articleBody">
+      
+      
+
+<h3 id="背景">背景</h3>
+
+<p>项目的nginx日志太多了，需要迁移到其他磁盘，另外一个同学采用软链的方式迁移到其他磁盘上，这样不影响现有程序。对于软链和硬连接概念上还是有些模糊，所以总结一下，直接抄Quora上的一个通俗的回答.</p>
+
+<h3 id="what-is-the-difference-between-a-hard-link-and-a-soft-link">What is the difference between a hard link and a soft link?</h3>
+
+<p>Have you ever given a thought to what happens when you store a file on your hard disk?</p>
+
+<p>I will show you.</p>
+
+<p>Let’s create a file first.</p>
+
+<pre><code class="language-bash">touch myfile
+cat &gt; myfile
+Hello, world!
+</code></pre>
+
+<p>cat file should display this text:</p>
+
+<pre><code class="language-bash">cat myfile
+Hello, world!
+</code></pre>
+
+<p>Where do you think myfile is stored?</p>
+
+<p>An obvious and correct answer is your hard drive.</p>
+
+<p><strong>How does Linux know myfile is on the hard drive?</strong></p>
+
+<p>When you entered “touch myfile” Linux stored the file on the hard drive and assigned it a number. That number is called <code>inode</code>.</p>
+
+<p>An inode stores a file’s address, size and plenty of other information, but not its name. A name links to an inode which links to a file.</p>
+
+<p>If, for some reason, the inode is linked with a file is removed, you cannot find the file, even if it is sitting right there on the hard drive.</p>
+
+<p>Thankfully it rarely happens.</p>
+
+<p>A more common scenario is for someone to erroneously write:</p>
+
+<pre><code class="language-bash">rm myfile
+</code></pre>
+
+<p>It will remove myfile.</p>
+
+<p>Hard links can save you from such nightmarish scenarios.</p>
+
+<p>Creating a hard link means choosing a new name for your file and linking that name of your file’s inode. It is relatively simple to do.</p>
+
+<pre><code class="language-bash">ln myfile myfileHardLink
+</code></pre>
+
+<p>Now even if someone removes myfile, you will still be able to access your data through myfileHardLink.</p>
+
+<p>Impressive, isn’t it?</p>
+
+<p><strong>But where do symbolic links fit into all this?</strong></p>
+
+<p>I have said, hard links connect the name of a file with its inode and you can choose multiple names for a file.</p>
+
+<p>Now, a symbolic link connects the new name of a file with its old name which in turn connects to the inode and finally to the data (file).</p>
+
+<p>This image will summarize my answer more elegantly than I can:</p>
+
+<p><img src="../../img/201704/linux_link.jpeg" alt="linux soft and hard link" /></p>
+
+<h3 id="动手">动手</h3>
+
+<pre><code class="language-bash">root@instance-8alx1qc6-1:~/tmp# ll -ail
+total 20
+420794 drwxr-xr-x  2 root root 4096 Apr 24 23:41 ./
+446 drwx------ 22 root root 4096 Apr 24 23:35 ../
+395269 -rw-r--r--  3 root root   61 Apr 16 23:25 file
+395269 -rw-r--r--  3 root root   61 Apr 16 23:25 file.h
+395269 -rw-r--r--  3 root root   61 Apr 16 23:25 file.s
+394365 lrwxrwxrwx  1 root root    6 Apr 24 23:41 file.ss -&gt; file.s
+394365 lrwxrwxrwx  2 root root    6 Apr 24 23:41 file.t -&gt; file.s
+</code></pre>
+
+<p>其中file是原来的文件.</p>
+
+<p>file.h, file.s是<code>file</code>的<code>hard link</code>, file.ss，file.t都是file.s的软链,其中file.t是通过file.ss生成硬链得来的。</p>
+
+<p>可以看到通过硬连接得来的文件，inode id和原来的是一样的。</p>
+
+    </div>
+
+    
+      
+
+    
+
+    
+      
+<div class="share-box" aria-hidden="true">
+  <ul class="share">
+    <li>
+      <a class="twitter"
+         href="https://twitter.com/intent/tweet?text=%e7%a1%ac%e8%bf%9e%e6%8e%a5%e5%92%8c%e8%bd%af%e8%bf%9e%e6%8e%a5&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2fcs%2flink%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-twitter"></i>
+      </a>
+    </li>
+    <li>
+      <a class="facebook"
+         href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fcheckking.github.io%2fpost%2fcs%2flink%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-facebook"></i>
+      </a>
+    </li>
+    <li>
+      <a class="linkedin"
+         href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2fcs%2flink%2f&amp;title=%e7%a1%ac%e8%bf%9e%e6%8e%a5%e5%92%8c%e8%bd%af%e8%bf%9e%e6%8e%a5"
+         target="_blank" rel="noopener">
+        <i class="fa fa-linkedin"></i>
+      </a>
+    </li>
+    <li>
+      <a class="email"
+         href="mailto:?subject=%e7%a1%ac%e8%bf%9e%e6%8e%a5%e5%92%8c%e8%bd%af%e8%bf%9e%e6%8e%a5&amp;body=https%3a%2f%2fcheckking.github.io%2fpost%2fcs%2flink%2f">
+        <i class="fa fa-envelope"></i>
+      </a>
+    </li>
+  </ul>
+</div>
+
+
+    
+
+    
+      
+
+    
+
+  </div>
+</article>
+			</section>
+		</div>
+	</article>
+</div> 
+
+<div class="page_footer">
+	<p>&copy; Check King 2018. Powered by <a href="http://gohugo.io/">Hugo</a> and <a href="https://github.com/jhu247/minimal-academic">Minimal Academic</a>.</p>
+</div>
+    
+    
+
+
+  </body>
+</html>

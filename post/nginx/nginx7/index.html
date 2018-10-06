@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="generator" content="Hugo 0.49" />
+  <meta name="author" content="Check King">
+
+  
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Merriweather:400,700%7cOpen&#43;Sans:400,400italic,700%7cRoboto&#43;Mono%25!%28EXTRA%20*hugolib.PageOutput=Page%28/post/nginx/nginx7.md%29%29">
+  <link rel="stylesheet" href="/styles.css">
+  
+
+  
+
+  
+  <link rel="alternate" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  <link rel="feed" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/img/favicon/site.webmanifest">
+  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="icon" type="image/png" href="/img/icon.png">
+  <link rel="apple-touch-icon" type="image/png" href="/img/icon-192.png">
+
+  <link rel="canonical" href="https://checkking.github.io/post/nginx/nginx7/">
+
+  <meta property="twitter:card" content="summary_large_image">
+  
+  <meta property="twitter:site" content="@">
+  <meta property="twitter:creator" content="@">
+  
+  <meta property="og:site_name" content="Check King&#39;s Blog">
+  <meta property="og:url" content="https://checkking.github.io/post/nginx/nginx7/">
+  <meta property="og:title" content="一个简易的debug库设计与实现 | Check King&#39;s Blog">
+  <meta property="og:locale" content="en-us">
+  
+  <meta property="article:published_time" content="2017-04-22T21:07:16&#43;08:00">
+  
+  <meta property="article:modified_time" content="2017-04-22T21:07:16&#43;08:00">
+  
+
+  <title>一个简易的debug库设计与实现 | Check King&#39;s Blog</title>
+
+  
+
+</head>
+<body>
+
+<style type="text/css">
+
+.masthead-hero {
+  background-image: url("https://checkking.github.io/img/hero.jpg");
+}
+</style>
+
+<div class="masthead-hero"></div>
+
+
+<div id="main" role="main">
+  <div class="sidebar sticky" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <div class="author-avatar">
+    <a href="/">
+      <img src="/img/avatar.png" alt="Check King" itemprop="image">
+    </a>
+  </div>
+  <div class="author-content">
+    <h3 class="author-name" itemprop="name">Check King</h3>
+    <p class="author-bio" itemprop="description">A backend programmer.</p>
+  </div>
+  <div class="author-urls-wrapper">
+    <ul class="author-urls social-icons" aria-hidden="true">
+      <li itemprop="homeLocation" itemscope itemtype="http://schema.org/Place">
+        <span itemprop="name">Shenzhen China</span>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-instagram"></i>
+          Instagram
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-linkedin"></i>
+          LinkedIn
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-twitter"></i>
+          Twitter
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="//github.com/checkking" target="_blank" rel="noopener">
+          <i class="fa fa-github"></i>
+          Github
+        </a>
+      </li>
+      
+    </ul>  
+  </div>
+</div>
+
+  <article class="page">
+		<div class="page_container">
+			<section class="page_content">
+				<div class="navbar-hero">
+	<nav>
+		<a href="/">Home</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/projects">Projects</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/blog">Blog</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/about">About</a>
+	</nav>
+</div>
+				<article class="post" itemscope itemtype="http://schema.org/Article">
+  <div class="post-container">
+    <h1 itemprop="name"><a href="https://checkking.github.io/post/nginx/nginx7/">一个简易的debug库设计与实现</a></h1>
+
+    
+      
+
+<div class="post-metadata">
+
+  <span class="post-date">
+    
+    <time datetime="2017-04-22 21:07:16 &#43;0800 CST" itemprop="datePublished dateModified">
+      Apr 22, 2017
+    </time>
+  </span>
+
+  
+
+</div>
+
+    
+
+    <div class="post-style" itemprop="articleBody">
+      
+      
+
+<h3 id="背景">背景</h3>
+
+<p>最近项目上线了广告Offer按照ecpm等排序策略功能，上线之后经常被pm骚扰，因为他经常想查看为什么一个offer没有展示等问题，每次都要帮他查看线上日志，过程很痛苦，占用了大把时间。必须要改变这种现状。</p>
+
+<h3 id="debug的用途">debug的用途</h3>
+
+<p>便于线上case追踪用，分析程序执行的每个环节。</p>
+
+<h3 id="设计要点">设计要点</h3>
+
+<ul>
+<li>debug信息的层级关系</li>
+</ul>
+
+<p>为了很好地阅读debug信息，必须将debug信息很好地组织起来，比如一个请求来了，在后台执行的时候需要经过好几步，stage1, stage2,state3,&hellip;,其中stage1中又有好几步，我们可以把这些信息按照树的结构组织起来：</p>
+
+<pre><code class="language-json">{
+    &quot;request&quot;: {
+        &quot;ip&quot;: &quot;180.92.201.3&quot;,
+        &quot;uri&quot;: &quot;/api/offer&quot;,
+        &quot;network&quot;: &quot;wifi&quot;,
+        &quot;debugid&quot;: &quot;8782399662&quot;
+    },
+    &quot;process&quot;: {
+        &quot;stage_readOffers&quot;: [
+            {
+                &quot;offer_id&quot;: &quot;3142&quot;,
+                &quot;type&quot;: &quot;aio&quot;,
+                &quot;flags&quot;: {
+                    &quot;d&quot;: 1,
+                    &quot;x&quot;: false,
+                    &quot;ne&quot;: -1
+                }
+            },
+            {
+                &quot;offer_id&quot;: &quot;3142&quot;,
+                &quot;type&quot;: &quot;aio&quot;,
+                &quot;flags&quot;: {
+                    &quot;d&quot;: 1,
+                    &quot;x&quot;: false,
+                    &quot;ne&quot;: -1
+                }
+            },
+            ...
+        ],
+        &quot;stage_filterOffers&quot;: [
+            {
+                &quot;offer_id&quot;: &quot;3142&quot;,
+                &quot;type&quot;: &quot;aio&quot;,
+                &quot;flags&quot;: {
+                    &quot;d&quot;: 1,
+                    &quot;x&quot;: false,
+                    &quot;ne&quot;: -1
+                }
+            },
+            ...
+        ],
+        ...
+    },
+    &quot;response&quot;: {
+        &quot;offer&quot;: {
+            &quot;offer_id&quot;: &quot;3142&quot;,
+            &quot;type&quot;: &quot;aio&quot;,
+            &quot;flags&quot;: {
+                &quot;d&quot;: 1,
+                &quot;x&quot;: false,
+                &quot;ne&quot;: -1
+            }
+        }
+    }
+}
+</code></pre>
+
+<p>这样我们就知道每一步发生了什么，为什么有些offer信息没有展示，有些展示了，整个请求走了哪些逻辑分支。</p>
+
+<ul>
+<li>如何动态地添加debug信息</li>
+</ul>
+
+<p>打印debug信息是分散在代码的各个地方，如何方便地将这些分散的debug信息组织起来？如果是动态语言，这种操作很方便地，比如上面的json格式和python的dict和php的array是对应起来的。如果是C/C++这种静态语言，需要单独开发，公司的bsl::IVar就是做这样的事，有时间研究一下。</p>
+
+<p>那具体怎么添加呢？比如我要给上面的process的stage2添加一个offer，可以这样做：</p>
+
+<pre><code class="language-php">addDebug('process.stage2.offer', $offer);
+</code></pre>
+
+<pre><code class="language-php">    public function addDebug($key, $info, $flag = false) {
+        $offset = 0;
+        $keyLen = strlen($key);
+        $key = trim($key, Mj_Debug::SEP_KEY_CHAR);
+        $cur = $this-&gt;value;
+        while ($found = strpos($key, Mj_Debug::SEP_KEY_CHAR, $offset)) {
+           $tmp = substr($key, $offset, $found - $offset);
+           if (!isset($cur[$tmp])) {
+               $cur[$tmp] = array();
+           }
+           $cur = $cur[$tmp];
+           $offset = $found + 1;
+        }
+        $lastKey = substr($key, $offset);
+        if (!isset($cur[$lastKey])) {
+            $cur[$lastKey] = array();
+        }
+        if ($flag) {
+            $cur[$lastKey] = $info;
+        } else {
+            $cur[$lastKey][] = $info;
+        }
+    }
+</code></pre>
+
+<p>这样在debug库的内部自动解析成数组的维度。</p>
+
+<ul>
+<li>如何避免影响对主要业务逻辑的性能影响</li>
+</ul>
+
+<p>因为一个请求来了之后可能打印很多的debug信息，而这些debug信息落地或者网络传输到cache中，由于数据量大，有两个弊端，一个是占用业务逻辑的大量cache空间，一个是影响主要逻辑的性能。为了避免这两点，可以引入旁路cache，这个cache和业务逻辑的cache不是同一个，这样就避免了影响业务逻辑。旁路cache的写入，往往需要单独的后台线程进行写入，这样就需要一个任务队列了，业务代码产生debug信息放到任务队列，后台线程读这个任务队列，将debug信息写入cache。</p>
+
+<p>但是，对应php这种语言，没有线程这一说，就不存在旁路写入了，但是php使用的场景是nginx的一个请求来了，启动一个子进程，也就是说php处理请求地时候是在一个单独的进程中，这样对其他的请求不会影响。 而且实际使用中debug的请求只是站所有请求的很小一部分。而且将将debug信息输出，往往只是内存地操作，速度很快。</p>
+
+<ul>
+<li>如何避免cache中的debug信息过多</li>
+</ul>
+
+<p>这个好解决。首先并不是所有的请求都需要写debug信息，可以采用随机抽样的方式，比如只有5%的请求需要打debug信息，而且写入到cache中的debug信息是会失效的，可以设置超时。</p>
+
+<h3 id="代码实现">代码实现</h3>
+
+<p>参见<a href="https://github.com/checkking/debug/tree/master/php" target="_blank">debuglib</a></p>
+
+    </div>
+
+    
+      
+
+    
+
+    
+      
+<div class="share-box" aria-hidden="true">
+  <ul class="share">
+    <li>
+      <a class="twitter"
+         href="https://twitter.com/intent/tweet?text=%e4%b8%80%e4%b8%aa%e7%ae%80%e6%98%93%e7%9a%84debug%e5%ba%93%e8%ae%be%e8%ae%a1%e4%b8%8e%e5%ae%9e%e7%8e%b0&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2fnginx%2fnginx7%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-twitter"></i>
+      </a>
+    </li>
+    <li>
+      <a class="facebook"
+         href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fcheckking.github.io%2fpost%2fnginx%2fnginx7%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-facebook"></i>
+      </a>
+    </li>
+    <li>
+      <a class="linkedin"
+         href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2fnginx%2fnginx7%2f&amp;title=%e4%b8%80%e4%b8%aa%e7%ae%80%e6%98%93%e7%9a%84debug%e5%ba%93%e8%ae%be%e8%ae%a1%e4%b8%8e%e5%ae%9e%e7%8e%b0"
+         target="_blank" rel="noopener">
+        <i class="fa fa-linkedin"></i>
+      </a>
+    </li>
+    <li>
+      <a class="email"
+         href="mailto:?subject=%e4%b8%80%e4%b8%aa%e7%ae%80%e6%98%93%e7%9a%84debug%e5%ba%93%e8%ae%be%e8%ae%a1%e4%b8%8e%e5%ae%9e%e7%8e%b0&amp;body=https%3a%2f%2fcheckking.github.io%2fpost%2fnginx%2fnginx7%2f">
+        <i class="fa fa-envelope"></i>
+      </a>
+    </li>
+  </ul>
+</div>
+
+
+    
+
+    
+      
+
+    
+
+  </div>
+</article>
+			</section>
+		</div>
+	</article>
+</div> 
+
+<div class="page_footer">
+	<p>&copy; Check King 2018. Powered by <a href="http://gohugo.io/">Hugo</a> and <a href="https://github.com/jhu247/minimal-academic">Minimal Academic</a>.</p>
+</div>
+    
+    
+
+
+  </body>
+</html>

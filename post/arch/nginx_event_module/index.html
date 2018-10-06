@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="generator" content="Hugo 0.49" />
+  <meta name="author" content="Check King">
+
+  
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Merriweather:400,700%7cOpen&#43;Sans:400,400italic,700%7cRoboto&#43;Mono%25!%28EXTRA%20*hugolib.PageOutput=Page%28/post/arch/nginx_event_module.md%29%29">
+  <link rel="stylesheet" href="/styles.css">
+  
+
+  
+
+  
+  <link rel="alternate" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  <link rel="feed" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/img/favicon/site.webmanifest">
+  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="icon" type="image/png" href="/img/icon.png">
+  <link rel="apple-touch-icon" type="image/png" href="/img/icon-192.png">
+
+  <link rel="canonical" href="https://checkking.github.io/post/arch/nginx_event_module/">
+
+  <meta property="twitter:card" content="summary_large_image">
+  
+  <meta property="twitter:site" content="@">
+  <meta property="twitter:creator" content="@">
+  
+  <meta property="og:site_name" content="Check King&#39;s Blog">
+  <meta property="og:url" content="https://checkking.github.io/post/arch/nginx_event_module/">
+  <meta property="og:title" content="nginx事件模块分析 | Check King&#39;s Blog">
+  <meta property="og:locale" content="en-us">
+  
+  <meta property="article:published_time" content="2017-04-15T21:07:16&#43;08:00">
+  
+  <meta property="article:modified_time" content="2017-04-15T21:07:16&#43;08:00">
+  
+
+  <title>nginx事件模块分析 | Check King&#39;s Blog</title>
+
+  
+
+</head>
+<body>
+
+<style type="text/css">
+
+.masthead-hero {
+  background-image: url("https://checkking.github.io/img/hero.jpg");
+}
+</style>
+
+<div class="masthead-hero"></div>
+
+
+<div id="main" role="main">
+  <div class="sidebar sticky" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <div class="author-avatar">
+    <a href="/">
+      <img src="/img/avatar.png" alt="Check King" itemprop="image">
+    </a>
+  </div>
+  <div class="author-content">
+    <h3 class="author-name" itemprop="name">Check King</h3>
+    <p class="author-bio" itemprop="description">A backend programmer.</p>
+  </div>
+  <div class="author-urls-wrapper">
+    <ul class="author-urls social-icons" aria-hidden="true">
+      <li itemprop="homeLocation" itemscope itemtype="http://schema.org/Place">
+        <span itemprop="name">Shenzhen China</span>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-instagram"></i>
+          Instagram
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-linkedin"></i>
+          LinkedIn
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-twitter"></i>
+          Twitter
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="//github.com/checkking" target="_blank" rel="noopener">
+          <i class="fa fa-github"></i>
+          Github
+        </a>
+      </li>
+      
+    </ul>  
+  </div>
+</div>
+
+  <article class="page">
+		<div class="page_container">
+			<section class="page_content">
+				<div class="navbar-hero">
+	<nav>
+		<a href="/">Home</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/projects">Projects</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/blog">Blog</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/about">About</a>
+	</nav>
+</div>
+				<article class="post" itemscope itemtype="http://schema.org/Article">
+  <div class="post-container">
+    <h1 itemprop="name"><a href="https://checkking.github.io/post/arch/nginx_event_module/">nginx事件模块分析</a></h1>
+
+    
+      
+
+<div class="post-metadata">
+
+  <span class="post-date">
+    
+    <time datetime="2017-04-15 21:07:16 &#43;0800 CST" itemprop="datePublished dateModified">
+      Apr 15, 2017
+    </time>
+  </span>
+
+  
+
+</div>
+
+    
+
+    <div class="post-style" itemprop="articleBody">
+      
+      
+
+<h4 id="整体流程分析">整体流程分析</h4>
+
+<p>先列出<code>event</code>模块相关定义的:</p>
+
+<pre><code class="language-c">
+static ngx_command_t  ngx_events_commands[] = {
+
+    { ngx_string(&quot;events&quot;),
+      NGX_MAIN_CONF|NGX_CONF_BLOCK|NGX_CONF_NOARGS,
+      ngx_events_block,
+      0,
+      0,
+      NULL },
+
+      ngx_null_command
+};
+
+
+static ngx_core_module_t  ngx_events_module_ctx = {
+    ngx_string(&quot;events&quot;),
+    NULL,
+    ngx_event_init_conf
+};
+
+ngx_module_t  ngx_events_module = {
+    NGX_MODULE_V1,
+    &amp;ngx_events_module_ctx,                /* module context */
+    ngx_events_commands,                   /* module directives */
+    NGX_CORE_MODULE,                       /* module type */
+    NULL,                                  /* init master */
+    NULL,                                  /* init module */
+    NULL,                                  /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
+};
+</code></pre>
+
+<p>在<code>ngx_init_cycle</code>函数中，有下面部分代码:</p>
+
+<pre><code class="language-c">    for (i = 0; cycle-&gt;modules[i]; i++) {
+        if (cycle-&gt;modules[i]-&gt;type != NGX_CORE_MODULE) {
+            continue;
+        }
+
+        module = cycle-&gt;modules[i]-&gt;ctx;
+
+        if (module-&gt;create_conf) {
+            rv = module-&gt;create_conf(cycle);
+            if (rv == NULL) {
+                ngx_destroy_pool(pool);
+                return NULL;
+            }
+            cycle-&gt;conf_ctx[cycle-&gt;modules[i]-&gt;index] = rv;
+        }
+    }
+</code></pre>
+
+<p>这部分代码对所有<code>module</code>的配置创建，但是<code>event</code>模块没有定义<code>create_conf</code>方法，所以这一步省略。</p>
+
+<pre><code class="language-c">    for (i = 0; cycle-&gt;modules[i]; i++) {
+        if (cycle-&gt;modules[i]-&gt;type != NGX_CORE_MODULE) {
+            continue;
+        }
+
+        module = cycle-&gt;modules[i]-&gt;ctx;
+
+        if (module-&gt;init_conf) {
+            if (module-&gt;init_conf(cycle,
+                                  cycle-&gt;conf_ctx[cycle-&gt;modules[i]-&gt;index])
+                == NGX_CONF_ERROR)
+            {
+                environ = senv;
+                ngx_destroy_cycle_pools(&amp;conf);
+                return NULL;
+            }
+        }
+    }
+</code></pre>
+
+<p>这部分代码中，对所有模块配置进行初始化，我们来看下<code>ngx_event_init_conf</code>方法：</p>
+
+<pre><code class="language-c">static char *
+ngx_event_init_conf(ngx_cycle_t *cycle, void *conf)
+{
+    if (ngx_get_conf(cycle-&gt;conf_ctx, ngx_events_module) == NULL) {
+        ngx_log_error(NGX_LOG_EMERG, cycle-&gt;log, 0,
+                      &quot;no \&quot;events\&quot; section in configuration&quot;);
+        return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+</code></pre>
+
+<p>可以看到，<code>ngx_events_module_ctx</code>实现的接口只是定义了模块名，<code>ngx_core_module_t</code>接口中定义的<code>create_conf</code>,<code>init_conf</code>方法都没有实现。这是因为<code>ngx_events_module</code>模块并不会解析配置项的参数，只是在出现<code>events</code>配置项后会调用各事件模块去解析<code>evnets{...}</code>块内的配置项。</p>
+
+<p>在<code>ngx_init_cycle</code>函数中调用了<code>ngx_init_modules</code>函数:</p>
+
+<pre><code class="language-c">ngx_int_t
+ngx_init_modules(ngx_cycle_t *cycle)
+{
+    ngx_uint_t  i;
+
+    for (i = 0; cycle-&gt;modules[i]; i++) {
+        if (cycle-&gt;modules[i]-&gt;init_module) {
+            if (cycle-&gt;modules[i]-&gt;init_module(cycle) != NGX_OK) {
+                return NGX_ERROR;
+            }
+        }
+    }
+
+    return NGX_OK;
+}
+</code></pre>
+
+<p>但是<code>ngx_events_module</code>并没有实现<code>init_module</code>, 所以这一步也跳过。</p>
+
+<p>接下来打开监听<code>sockets</code>(调用<code>ngx_open_listening_sockets</code>方法)：</p>
+
+<pre><code class="language-c">    for (tries = 5; tries; tries--) {
+        failed = 0;
+
+        /* for each listening socket */
+
+        ls = cycle-&gt;listening.elts;
+        for (i = 0; i &lt; cycle-&gt;listening.nelts; i++) {
+
+            if (ls[i].ignore) {
+                continue;
+            }
+
+#if (NGX_HAVE_REUSEPORT)
+
+            if (ls[i].add_reuseport) {
+
+                /*
+                 * to allow transition from a socket without SO_REUSEPORT
+                 * to multiple sockets with SO_REUSEPORT, we have to set
+                 * SO_REUSEPORT on the old socket before opening new ones
+                 */
+
+                int  reuseport = 1;
+
+                if (setsockopt(ls[i].fd, SOL_SOCKET, SO_REUSEPORT,
+                               (const void *) &amp;reuseport, sizeof(int))
+                    == -1)
+                {
+                    ngx_log_error(NGX_LOG_ALERT, cycle-&gt;log, ngx_socket_errno,
+                                  &quot;setsockopt(SO_REUSEPORT) %V failed, ignored&quot;,
+                                  &amp;ls[i].addr_text);
+                }
+
+                ls[i].add_reuseport = 0;
+            }
+#endif
+
+            if (ls[i].fd != (ngx_socket_t) -1) {
+                continue;
+            }
+
+            if (ls[i].inherited) {
+
+                /* TODO: close on exit */
+                /* TODO: nonblocking */
+                /* TODO: deferred accept */
+
+                continue;
+            }
+
+            s = ngx_socket(ls[i].sockaddr-&gt;sa_family, ls[i].type, 0);
+
+            if (s == (ngx_socket_t) -1) {
+                ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
+                              ngx_socket_n &quot; %V failed&quot;, &amp;ls[i].addr_text);
+                return NGX_ERROR;
+            }
+
+            if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
+                           (const void *) &amp;reuseaddr, sizeof(int))
+                == -1)
+            {
+                ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
+                              &quot;setsockopt(SO_REUSEADDR) %V failed&quot;,
+                              &amp;ls[i].addr_text);
+
+                if (ngx_close_socket(s) == -1) {
+                    ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
+                                  ngx_close_socket_n &quot; %V failed&quot;,
+                                  &amp;ls[i].addr_text);
+                }
+
+                return NGX_ERROR;
+            }
+
+#if (NGX_HAVE_REUSEPORT)
+
+            if (ls[i].reuseport) {
+                int  reuseport;
+
+                reuseport = 1;
+
+                if (setsockopt(s, SOL_SOCKET, SO_REUSEPORT,
+                               (const void *) &amp;reuseport, sizeof(int))
+                    == -1)
+                {
+                    ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
+                                  &quot;setsockopt(SO_REUSEPORT) %V failed, ignored&quot;,
+                                  &amp;ls[i].addr_text);
+
+                    if (ngx_close_socket(s) == -1) {
+                        ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
+                                      ngx_close_socket_n &quot; %V failed&quot;,
+                                      &amp;ls[i].addr_text);
+                    }
+
+                    return NGX_ERROR;
+                }
+            }
+#endif
+
+#if (NGX_HAVE_INET6 &amp;&amp; defined IPV6_V6ONLY)
+
+            if (ls[i].sockaddr-&gt;sa_family == AF_INET6) {
+                int  ipv6only;
+
+                ipv6only = ls[i].ipv6only;
+
+                if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY,
+                               (const void *) &amp;ipv6only, sizeof(int))
+                    == -1)
+                {
+                    ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
+                                  &quot;setsockopt(IPV6_V6ONLY) %V failed, ignored&quot;,
+                                  &amp;ls[i].addr_text);
+                }
+            }
+#endif
+            /* TODO: close on exit */
+
+            if (!(ngx_event_flags &amp; NGX_USE_IOCP_EVENT)) {
+                if (ngx_nonblocking(s) == -1) {
+                    ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
+                                  ngx_nonblocking_n &quot; %V failed&quot;,
+                                  &amp;ls[i].addr_text);
+
+                    if (ngx_close_socket(s) == -1) {
+                        ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
+                                      ngx_close_socket_n &quot; %V failed&quot;,
+                                      &amp;ls[i].addr_text);
+                    }
+
+                    return NGX_ERROR;
+                }
+            }
+
+            ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0,
+                           &quot;bind() %V #%d &quot;, &amp;ls[i].addr_text, s);
+
+            if (bind(s, ls[i].sockaddr, ls[i].socklen) == -1) {
+                err = ngx_socket_errno;
+
+                if (err != NGX_EADDRINUSE || !ngx_test_config) {
+                    ngx_log_error(NGX_LOG_EMERG, log, err,
+                                  &quot;bind() to %V failed&quot;, &amp;ls[i].addr_text);
+                }
+
+                if (ngx_close_socket(s) == -1) {
+                    ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
+                                  ngx_close_socket_n &quot; %V failed&quot;,
+                                  &amp;ls[i].addr_text);
+                }
+
+                if (err != NGX_EADDRINUSE) {
+                    return NGX_ERROR;
+                }
+
+                if (!ngx_test_config) {
+                    failed = 1;
+                }
+
+                continue;
+            }
+
+#if (NGX_HAVE_UNIX_DOMAIN)
+
+            if (ls[i].sockaddr-&gt;sa_family == AF_UNIX) {
+                mode_t   mode;
+                u_char  *name;
+
+                name = ls[i].addr_text.data + sizeof(&quot;unix:&quot;) - 1;
+                mode = (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
+
+                if (chmod((char *) name, mode) == -1) {
+                    ngx_log_error(NGX_LOG_EMERG, cycle-&gt;log, ngx_errno,
+                                  &quot;chmod() \&quot;%s\&quot; failed&quot;, name);
+                }
+
+                if (ngx_test_config) {
+                    if (ngx_delete_file(name) == NGX_FILE_ERROR) {
+                        ngx_log_error(NGX_LOG_EMERG, cycle-&gt;log, ngx_errno,
+                                      ngx_delete_file_n &quot; %s failed&quot;, name);
+                    }
+                }
+            }
+#endif
+
+            if (ls[i].type != SOCK_STREAM) {
+                ls[i].fd = s;
+                continue;
+            }
+
+            if (listen(s, ls[i].backlog) == -1) {
+                err = ngx_socket_errno;
+
+                /*
+                 * on OpenVZ after suspend/resume EADDRINUSE
+                 * may be returned by listen() instead of bind(), see
+                 * https://bugzilla.openvz.org/show_bug.cgi?id=2470
+                 */
+
+                if (err != NGX_EADDRINUSE || !ngx_test_config) {
+                    ngx_log_error(NGX_LOG_EMERG, log, err,
+                                  &quot;listen() to %V, backlog %d failed&quot;,
+                                  &amp;ls[i].addr_text, ls[i].backlog);
+                }
+
+                if (ngx_close_socket(s) == -1) {
+                    ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
+                                  ngx_close_socket_n &quot; %V failed&quot;,
+                                  &amp;ls[i].addr_text);
+                }
+
+                if (err != NGX_EADDRINUSE) {
+                    return NGX_ERROR;
+                }
+
+                if (!ngx_test_config) {
+                    failed = 1;
+                }
+
+                continue;
+            }
+
+            ls[i].listen = 1;
+
+            ls[i].fd = s;
+        }
+
+        if (!failed) {
+            break;
+        }
+
+        /* TODO: delay configurable */
+
+        ngx_log_error(NGX_LOG_NOTICE, log, 0,
+                      &quot;try again to bind() after 500ms&quot;);
+
+        ngx_msleep(500);
+    }
+</code></pre>
+
+<p>可以看到, <code>ngx_open_listening_sockets</code>主要功能是<code>socket</code>、<code>bind</code>和<code>listen</code>函数的调用，最终创建完的监听套接字就在cycle结构体的listening域里, 并且设置<code>socket</code>为可重用的，而且是非阻塞的。</p>
+
+<p>然后是调用<code>ngx_configure_listening_sockets</code>方法，对监听<code>socket</code>进行配置, 是调用unix网络接口函数<code>setsockopt</code>进行配置的, 使用了下面这些参数：</p>
+
+<table>
+<thead>
+<tr>
+<th>socket选项</th>
+<th>选项描述</th>
+<th>nginx相关代码</th>
+<th>nginx中使用目的</th>
+<th>nginx.conf相关</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>SO_RECVBUF</td>
+<td>设置TCP套接字接收缓冲区大小</td>
+<td><code>setsockopt(ls[i].fd, SOL_SOCKET, SO_RCVBUF,(const void *) &amp;ls[i].rcvbuf, sizeof(int)</code></td>
+<td>根据配置设置tcp套接字缓冲区</td>
+<td><code>listen address[:port][rcvbuf=size]</code></td>
+</tr>
+
+<tr>
+<td>SO_SNDBUF</td>
+<td>设置TCP套接字发送缓冲区大小</td>
+<td><code>setsockopt(ls[i].fd, SOL_SOCKET, SO_SNDBUF,(const void *) &amp;ls[i].sndbuf, sizeof(int)</code></td>
+<td>根据配置设置tcp发送缓冲区大小</td>
+<td><code>listen address[:port][sndbuf=size]</code></td>
+</tr>
+
+<tr>
+<td>SO_KEEPALIVE</td>
+<td>SO_KEEPALIVE 保持连接检测对方主机是否崩溃，避免（服务器）永远阻塞于TCP连接的输入</td>
+<td><code>setsockopt(ls[i].fd, SOL_SOCKET, SO_KEEPALIVE,(const void *) &amp;value, sizeof(int)</code></td>
+<td>与客户端保持长连接</td>
+<td><code>listen address[:port] [so_keepalive=on</code></td>
+</tr>
+
+<tr>
+<td>TCP_KEEPIDLE</td>
+<td>对一个连接进行有效性探测之前运行的最大非活跃时间间隔，默认值为 14400（即 2 个小时）</td>
+<td><code>setsockopt(ls[i].fd, IPPROTO_TCP, TCP_KEEPIDLE,(const void *) &amp;value, sizeof(int)</code></td>
+<td>与keepalive结合，与客户端保持长连接</td>
+<td><code>listen address[:port] [so_keepalive=on keepidle</code></td>
+</tr>
+</tbody>
+</table>
+
+<p>这里只列举了几个，其他的可以参考nginx源码。</p>
+
+<p>接着就是初始化各个<code>modules</code>:</p>
+
+<pre><code class="language-c">    if (ngx_init_modules(cycle) != NGX_OK) {
+        /* fatal */
+        exit(1);
+    }
+</code></pre>
+
+<pre><code class="language-c">ngx_int_t
+ngx_init_modules(ngx_cycle_t *cycle)
+{
+    ngx_uint_t  i;
+
+    for (i = 0; cycle-&gt;modules[i]; i++) {
+        if (cycle-&gt;modules[i]-&gt;init_module) {
+            if (cycle-&gt;modules[i]-&gt;init_module(cycle) != NGX_OK) {
+                return NGX_ERROR;
+            }
+        }
+    }
+
+    return NGX_OK;
+}
+</code></pre>
+
+<p>其中<code>ngx_event_core_module_ctx</code>和<code>ngx_evnet_core_module</code>的定义如下：</p>
+
+<pre><code class="language-c">ngx_event_module_t  ngx_event_core_module_ctx = {
+    &amp;event_core_name,
+    ngx_event_core_create_conf,            /* create configuration */
+    ngx_event_core_init_conf,              /* init configuration */
+
+    { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+</code></pre>
+
+<pre><code class="language-c">ngx_module_t  ngx_event_core_module = {
+    NGX_MODULE_V1,
+    &amp;ngx_event_core_module_ctx,            /* module context */
+    ngx_event_core_commands,               /* module directives */
+    NGX_EVENT_MODULE,                      /* module type */
+    NULL,                                  /* init master */
+    ngx_event_module_init,                 /* init module */
+    ngx_event_process_init,                /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
+};
+</code></pre>
+
+<p>它实现了<code>ngx_evnet_module_init</code>方法和<code>ngx_event_process_init</code>方法。在nginx启动过程中还没有fork出worker子进程时，会首先调用<code>ngx_event_core_module</code>模块的<code>ngx_evnet_module_init</code>方法，而在<code>fork</code>出<code>worker</code>进程后，每一个<code>worker</code>进程会在调用<code>ngx_event_core_module</code>模块的<code>ngx_event_process_init</code>方法后才会进入正式的工作循环。</p>
+
+<p><code>ngx_event_module_init</code>方法其实很简单，它主要初始化了一些变量，尤其是<code>ngx_http_stub_status_module</code>统计模块使用的一些原子性的统计变量。</p>
+
+<p>而<code>ngx_event_proces_init</code>方法就做了许多事情，总流程图如下：</p>
+
+<p><img src="../../img/201704/ngx_event.png" alt="nginx事件模块" /></p>
+
+<p>这里有几个点需要特别讲解一下。</p>
+
+<h4 id="nginx连接池">nginx连接池</h4>
+
+<p>nginx在接收客户端的连接时，所使用的<code>ngx_connection_t</code>结构体都是在启动阶段就预分配好的，使用时从连接池获取即可。连接池示意图如下所示：</p>
+
+<p><img src="../../img/201704/ngx_connection_pool.jpg" alt="nginx连接池示意图" /></p>
+
+<p><code>ngx_cycle_t</code>中的<code>connections</code>和<code>free_connections</code>这两个成员构成一个连接池，其中<code>connections</code>指向整个连接池数组的首部。而<code>free_connections</code>则指向第一个<code>ngx_connection_t</code>空闲连接。所有的
+空闲连接<code>ngx_connection_t</code>都以<code>data</code>成员作为<code>next</code>指针串联成一个单链表，如此，一旦有用户发起连接时就从<code>free_connections</code>指向的链表头获取一个空闲的链表，同时<code>free_connections</code>再指向下一个空闲连接。</p>
+
+<p>由于读事件、写事件、连接池是由3个大小相同的数组组成，所以根据数据序号可以将每一个连接、读事件、写事件对应起来。</p>
+
+<h4 id="如何解决-惊群-问题">如何解决“惊群”问题</h4>
+
+<p><code>master</code>进程开始监听<code>Web</code>端口，<code>fork</code>出多个<code>worker</code>子进程，这些子进程开始同时监听同一个Web端口。没有用户连入服务器，某一时刻恰好所有的<code>worker</code>子进程都休眠且等待
+新连接的系统调用(如<code>epoll_wait</code>)，这时有一个用户向服务器发起了连接，内核在收到TCP的SYN包时，会激活所有的休眠的<code>worker</code>子进程，当然，此时只有最先开始执行<code>accept</code>的子进程可以成功
+建立新连接，而其他<code>worker</code>子进程都会<code>accept</code>失败。这些<code>accept</code>失败的子进程被内核唤醒是不必要的，他们被唤醒后的执行很可能是多余的，那么这一时刻它们占用了本不需要占用的系统资源，引发了
+不必要的进程上下文的切换，增加了系统开销。</p>
+
+<p>nginx解决“惊群”的方法很简单，它规定了同一时刻只能有唯一一个<code>worker</code>子进程监听Web端口，这样就不会发生“惊群”了，此时新连接事件只能唤醒唯一一个<code>worker</code>进程监听web端口，这样就不会发生“惊群”了，这样新连接到来的时候就只唤醒一个正在监听端口的<code>worker</code>子进程。只有打开了<code>accept_mutex</code>锁，nginx就会避免&rdquo;惊群&rdquo;。在打开<code>accept_mutex</code>锁的情况下，只有调用<code>ngx_trylock_accept_mutex</code>方法后，当前的<code>worker</code>进程才会去试着监听Web端口. 代码如下：</p>
+
+<pre><code class="language-c">ngx_int_t
+ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
+{
+    /*使用进程间的同步锁，试图获取accept_mutex锁。*/
+    if (ngx_shmtx_trylock(&amp;ngx_accept_mutex)) {
+
+        ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle-&gt;log, 0,
+                       &quot;accept mutex locked&quot;);
+
+        if (ngx_accept_mutex_held &amp;&amp; ngx_accept_events == 0) {
+            // 之前已经拿到锁，立刻返回
+            return NGX_OK;
+        }
+
+        // 将所有监听连接的读事件添加到当前的epoll等事件驱动模块中
+        if (ngx_enable_accept_events(cycle) == NGX_ERROR) {
+            ngx_shmtx_unlock(&amp;ngx_accept_mutex);
+            return NGX_ERROR;
+        }
+
+        /*经过ngx_enable_accept_events方法的调用，当前进程的事件驱动模块已经开始监听所有的端口，这时需要把ngx_accept_mutex_held标志位置为1，
+         方便本进程的其他模块了解它目前已经获取到了锁*/
+        ngx_accept_events = 0;
+        ngx_accept_mutex_held = 1;
+
+        return NGX_OK;
+    }
+
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle-&gt;log, 0,
+                   &quot;accept mutex lock failed: %ui&quot;, ngx_accept_mutex_held);
+
+    if (ngx_accept_mutex_held) {
+        if (ngx_disable_accept_events(cycle, 0) == NGX_ERROR) {
+            return NGX_ERROR;
+        }
+
+        ngx_accept_mutex_held = 0;
+    }
+
+    return NGX_OK;
+}
+</code></pre>
+
+<p>如果<code>ngx_trylock_accept_mutex</code>方法没有获取到锁，接下来调用事件驱动模块的<code>process_events</code>方法时只能处理已有的连接上的事件；如果获取到了锁，调用<code>process_events</code>方法时就会
+既处理已有连接上的事件，又处理新连接事件。</p>
+
+<p>那么什么时候释放<code>ngx_accept_mutex</code>锁呢? 不能等这批事件全部执行完，因为这个<code>worker</code>进程上可能有许多活跃的连接，处理这些连接上的事件会占用很长时间，其他进程就长时间不能获得<code>ngx_accept_mutex</code>锁。解决长时间占用<code>ngx_accept_mutex</code>锁的问题要依靠<code>ngx_posted_acceps</code>队列和<code>ngx_posted_events</code>队列。首先看下面这段代码：</p>
+
+<pre><code class="language-c">if (ngx_trylock_accept_mutex(cycle) == NGX_ERROR) {
+    return;
+}
+
+if (ngx_accept_mutex_held) {
+    flags |= NGX_POST_EVENTS;
+}
+</code></pre>
+
+<p>当拿到了<code>ngx_accept_mutex</code>锁了，在调用<code>epoll_wait</code>的时候就会拿到新连接事件了。</p>
+
+<pre><code class="language-c">events = epoll_wait(ep, event_list, (int) nevents, timer);
+</code></pre>
+
+<p>调用<code>ngx_trylock_accept_mutex</code>试图处理监听端口的新连接事件，如果<code>ngx_accept_mutex_held</code>为1，就表示开始处理新连接事件了，这时将<code>flags</code>标志位加上<code>NGX_POST_EVENTS</code>。当<code>flags</code>标志位包含<code>NGX_POST_EVENTS</code>时是不会立刻调用事件的<code>handler</code>回调方法的，代码如下：</p>
+
+<pre><code class="language-c">        if ((revents &amp; EPOLLIN) &amp;&amp; rev-&gt;active) {
+
+#if (NGX_HAVE_EPOLLRDHUP)
+            if (revents &amp; EPOLLRDHUP) {
+                rev-&gt;pending_eof = 1;
+            }
+
+            rev-&gt;available = 1;
+#endif
+
+            rev-&gt;ready = 1;
+
+            if (flags &amp; NGX_POST_EVENTS) {
+                queue = rev-&gt;accept ? &amp;ngx_posted_accept_events
+                                    : &amp;ngx_posted_events;
+
+                ngx_post_event(rev, queue);
+
+            } else {
+                rev-&gt;handler(rev);
+            }
+
+</code></pre>
+
+<pre><code class="language-c">    ngx_event_process_posted(cycle, &amp;ngx_posted_accept_events);
+
+    if (ngx_accept_mutex_held) {
+        ngx_shmtx_unlock(&amp;ngx_accept_mutex);
+    }
+
+    if (delta) {
+        ngx_event_expire_timers();
+    }
+
+    ngx_event_process_posted(cycle, &amp;ngx_posted_events);
+</code></pre>
+
+<p>新连接事件全部放到<code>ngx_posted_accept_events</code>队列中，普通事件则放到<code>ngx_posted_events</code>队列中。这样，接下来会先处理<code>ngx_posted_accept_events</code>队列中事件，
+处理完就要立刻释放<code>ngx_accept_mutex</code>锁，接着再处理<code>ngx_posted_events</code>队列中的事件,这样就大大减少了<code>ngx_accept_mutex</code>锁占用的时间。(?为什么不是在把新的连接事件加入队列后就释放锁)</p>
+
+<h4 id="如何实现负载均衡">如何实现负载均衡</h4>
+
+<p>与“惊群”问题的解决方法一样，只有打开了<code>accept_mutex</code>锁，才能实现<code>worker</code>子进程间的负载均衡。nginx初始化了一个全局变量<code>ngx_accept_disabled</code>，它就是负载均衡机制实现的关键阈值,实际上它
+就是一个整型数据。</p>
+
+<p>这个阈值是与连接池中连接的使用情况密切相关的。</p>
+
+<pre><code class="language-c">        ngx_accept_disabled = ngx_cycle-&gt;connection_n / 8
+                              - ngx_cycle-&gt;free_connection_n;
+</code></pre>
+
+<p>因此，在Nginx启动时，<code>ngx_accept_disabled</code>的值就是一个负数，其值为连接总数的7/8。当<code>ngx_accept_disabled</code>为负数时，不会进行触发负载均衡操作；而当<code>ngx_accept_disabled</code>为正数时，
+就会触发Nginx进行负载均衡操作了。Nginx做法很简单，就是当<code>ngx_accept_disabled</code>是正数时当前进程将不再处理新连接事件，取而代之的仅仅是<code>ngx_accept_disabled</code>值减一。</p>
+
+<pre><code class="language-c">    if (ngx_use_accept_mutex) {
+        if (ngx_accept_disabled &gt; 0) {
+            ngx_accept_disabled--;
+
+        } else {
+            if (ngx_trylock_accept_mutex(cycle) == NGX_ERROR) {
+                return;
+            }
+
+            if (ngx_accept_mutex_held) {
+                flags |= NGX_POST_EVENTS;
+
+            } else {
+                if (timer == NGX_TIMER_INFINITE
+                    || timer &gt; ngx_accept_mutex_delay)
+                {
+                    timer = ngx_accept_mutex_delay;
+                }
+            }
+        }
+</code></pre>
+
+<h4 id="timer-resolution配置">timer_resolution配置</h4>
+
+<p>nginx官网关于<code>timer_resolution</code>配置的说明如下:</p>
+
+<pre><code>配置选项：timer_resolution
+设置语法：timer_resolution t
+默 认 值：none
+例子：timer_resolution? 100ms;
+说明：该配置指令允许用户减少调用gettimeofday()的次数。默认情况下，该函数在每次I/O端口监听（比如epoll_wait）返回后都将被调用，而通过timer_resolution配置选项可以直接指定调用gettimeofday()函数的间隔时间。
+</code></pre>
+
+<p>下面就来看看该配置选项是如何起作用的。</p>
+
+<p>如果设置了timer_resolution选项，那么设置值会反应在一个全局变量ngx_timer_resolution内，这个具体转换过程很容易理清楚，在源码工程内搜索关键字&rdquo;timer_resolution&rdquo;就可以找到相关代码。
+在源文件ngx_event.c的函数ngx_process_events_and_timers内：</p>
+
+<pre><code class="language-c">if (ngx_timer_resolution) {
+    timer = NGX_TIMER_INFINITE;
+    flags = 0;
+
+} else {
+    timer = ngx_event_find_timer();
+    flags = NGX_UPDATE_TIME;
+
+#if (NGX_THREADS)
+
+    if (timer == NGX_TIMER_INFINITE || timer &gt; 500) {
+        timer = 500;
+    }
+
+#endif
+}
+</code></pre>
+
+<p>在timer_resolution选项未设置时：</p>
+
+<pre><code class="language-c">flags = NGX_UPDATE_TIME;
+</code></pre>
+
+<p>而接下来的回调函数：</p>
+
+<pre><code class="language-c">(void) ngx_process_events(cycle, timer, flags);
+</code></pre>
+
+<p>会将该flags值传到相应的事件处理函数里去, 在<code>ngx_epoll_module.c</code>的<code>ngx_epoll_process_events</code>函数中:</p>
+
+<pre><code class="language-c">if (flags &amp; NGX_UPDATE_TIME) {
+    ngx_time_update(0, 0);
+}
+</code></pre>
+
+<p>可以看到当设置timer_resolution选项时，该if为假，因为flags = 0;，所以在epoll_wait后不会调用gettimeofday（这在函数ngx_time_update内调用）。而在哪儿调用呢？这在一个定时器信号处理函数内被调用。
+在<code>ngx_event.c</code>的函数<code>ngx_event_process_init</code>中，通过<code>setitimer</code>设置定时器，定时信号处理函数设置为<code>ngx_timer_signal_handler</code>。</p>
+
+<pre><code class="language-c">void
+ngx_timer_signal_handler(int signo)
+{
+    ngx_event_timer_alarm = 1;
+
+#if 1
+    ngx_log_debug0(NGX_LOG_DEBUG_EVENT, ngx_cycle-&gt;log, 0, &quot;timer signal&quot;);
+#endif
+}
+</code></pre>
+
+<h4 id="参考">参考</h4>
+
+<ol>
+<li><a href="https://github.com/nginx/nginx" target="_blank">nginx源码</a></li>
+<li>《深入理解Nginx》 第9章</li>
+</ol>
+
+    </div>
+
+    
+      
+
+    
+
+    
+      
+<div class="share-box" aria-hidden="true">
+  <ul class="share">
+    <li>
+      <a class="twitter"
+         href="https://twitter.com/intent/tweet?text=nginx%e4%ba%8b%e4%bb%b6%e6%a8%a1%e5%9d%97%e5%88%86%e6%9e%90&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2farch%2fnginx_event_module%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-twitter"></i>
+      </a>
+    </li>
+    <li>
+      <a class="facebook"
+         href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fcheckking.github.io%2fpost%2farch%2fnginx_event_module%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-facebook"></i>
+      </a>
+    </li>
+    <li>
+      <a class="linkedin"
+         href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2farch%2fnginx_event_module%2f&amp;title=nginx%e4%ba%8b%e4%bb%b6%e6%a8%a1%e5%9d%97%e5%88%86%e6%9e%90"
+         target="_blank" rel="noopener">
+        <i class="fa fa-linkedin"></i>
+      </a>
+    </li>
+    <li>
+      <a class="email"
+         href="mailto:?subject=nginx%e4%ba%8b%e4%bb%b6%e6%a8%a1%e5%9d%97%e5%88%86%e6%9e%90&amp;body=https%3a%2f%2fcheckking.github.io%2fpost%2farch%2fnginx_event_module%2f">
+        <i class="fa fa-envelope"></i>
+      </a>
+    </li>
+  </ul>
+</div>
+
+
+    
+
+    
+      
+
+    
+
+  </div>
+</article>
+			</section>
+		</div>
+	</article>
+</div> 
+
+<div class="page_footer">
+	<p>&copy; Check King 2018. Powered by <a href="http://gohugo.io/">Hugo</a> and <a href="https://github.com/jhu247/minimal-academic">Minimal Academic</a>.</p>
+</div>
+    
+    
+
+
+  </body>
+</html>

@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="generator" content="Hugo 0.49" />
+  <meta name="author" content="Check King">
+
+  
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Merriweather:400,700%7cOpen&#43;Sans:400,400italic,700%7cRoboto&#43;Mono%25!%28EXTRA%20*hugolib.PageOutput=Page%28/post/nginx/nginx8.md%29%29">
+  <link rel="stylesheet" href="/styles.css">
+  
+
+  
+
+  
+  <link rel="alternate" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  <link rel="feed" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/img/favicon/site.webmanifest">
+  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="icon" type="image/png" href="/img/icon.png">
+  <link rel="apple-touch-icon" type="image/png" href="/img/icon-192.png">
+
+  <link rel="canonical" href="https://checkking.github.io/post/nginx/nginx8/">
+
+  <meta property="twitter:card" content="summary_large_image">
+  
+  <meta property="twitter:site" content="@">
+  <meta property="twitter:creator" content="@">
+  
+  <meta property="og:site_name" content="Check King&#39;s Blog">
+  <meta property="og:url" content="https://checkking.github.io/post/nginx/nginx8/">
+  <meta property="og:title" content="nginx配置管理源码解析 | Check King&#39;s Blog">
+  <meta property="og:locale" content="en-us">
+  
+  <meta property="article:published_time" content="2017-10-20T21:07:16&#43;08:00">
+  
+  <meta property="article:modified_time" content="2017-10-20T21:07:16&#43;08:00">
+  
+
+  <title>nginx配置管理源码解析 | Check King&#39;s Blog</title>
+
+  
+
+</head>
+<body>
+
+<style type="text/css">
+
+.masthead-hero {
+  background-image: url("https://checkking.github.io/img/hero.jpg");
+}
+</style>
+
+<div class="masthead-hero"></div>
+
+
+<div id="main" role="main">
+  <div class="sidebar sticky" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <div class="author-avatar">
+    <a href="/">
+      <img src="/img/avatar.png" alt="Check King" itemprop="image">
+    </a>
+  </div>
+  <div class="author-content">
+    <h3 class="author-name" itemprop="name">Check King</h3>
+    <p class="author-bio" itemprop="description">A backend programmer.</p>
+  </div>
+  <div class="author-urls-wrapper">
+    <ul class="author-urls social-icons" aria-hidden="true">
+      <li itemprop="homeLocation" itemscope itemtype="http://schema.org/Place">
+        <span itemprop="name">Shenzhen China</span>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-instagram"></i>
+          Instagram
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-linkedin"></i>
+          LinkedIn
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-twitter"></i>
+          Twitter
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="//github.com/checkking" target="_blank" rel="noopener">
+          <i class="fa fa-github"></i>
+          Github
+        </a>
+      </li>
+      
+    </ul>  
+  </div>
+</div>
+
+  <article class="page">
+		<div class="page_container">
+			<section class="page_content">
+				<div class="navbar-hero">
+	<nav>
+		<a href="/">Home</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/projects">Projects</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/blog">Blog</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/about">About</a>
+	</nav>
+</div>
+				<article class="post" itemscope itemtype="http://schema.org/Article">
+  <div class="post-container">
+    <h1 itemprop="name"><a href="https://checkking.github.io/post/nginx/nginx8/">nginx配置管理源码解析</a></h1>
+
+    
+      
+
+<div class="post-metadata">
+
+  <span class="post-date">
+    
+    <time datetime="2017-10-20 21:07:16 &#43;0800 CST" itemprop="datePublished dateModified">
+      Oct 20, 2017
+    </time>
+  </span>
+
+  
+
+</div>
+
+    
+
+    <div class="post-style" itemprop="articleBody">
+      
+      
+
+<h3 id="一个典型的nginx-conf配置">一个典型的nginx.conf配置</h3>
+
+<pre><code>worker_processes  1;
+events {
+    worker_connections  1024;
+}
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] &quot;$request&quot; '
+                      '$status $body_bytes_sent $request_id &quot;$http_referer&quot; '
+                      '&quot;$http_user_agent&quot; &quot;$http_x_forwarded_for&quot;';
+
+    access_log  logs/access.log  main;
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    #keepalive_timeout  0;
+    keepalive_timeout  65;
+
+    #gzip  on;
+
+    server {
+        listen       80;
+        server_name  www.domain.com;
+        root /root/com/domain/www;
+        index index.html index.htm index.php;
+        location ~ \.(jpg|png|gif|js|css|swf|flv|ico)$ {
+            expires 12h;
+        }
+
+        #charset koi8-r;
+
+        access_log  logs/host.access.log main;
+        error_log  logs/host.error.log debug;
+
+        location / {
+            if (!-e $request_filename) {
+                rewrite ^(.*)$ /index.php?$1 last ;
+                break;
+            }
+        }
+        location /test {
+            return 200 &quot;Hello World&quot;;
+        }
+        location ~* ^/(doc|logs|app|sys)/ {
+            return 403;
+        }
+
+        error_page  404              /404.html;
+
+        # redirect server error pages to the static page /50x.html
+        #
+        error_page   500 502 503 504  /50x.html;
+
+        location ~ .*\.(php|php5)?$ {
+            fastcgi_connect_timeout 300;
+            fastcgi_send_timeout 300;
+            fastcgi_read_timeout 300;
+            fastcgi_pass   127.0.0.1:9000;
+            fastcgi_index  index.php;
+            fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            include        fastcgi_params;
+        }
+
+        location ^~ /.well-known/ {
+            allow all;
+        }
+    }
+
+    # another virtual host using mix of IP-, name-, and port-based configuration
+
+    server {
+        listen       8091;
+        server_name  localhost;
+        access_log  logs/yaf.access.log;
+        root /root/github/yaflearn/Sample;
+        index index.html index.htm index.php;
+
+        location ~ \.(jpg|png|gif|js|css|swf|flv|ico)$ {
+            expires 12h;
+        }
+
+        location / {
+            if (!-e $request_filename) {
+                rewrite ^(.*)$ /index.php?$1 last ;
+                break;
+            }
+        }
+
+        location ~ .*\.(php|php5)?$ {
+            fastcgi_connect_timeout 300;
+            fastcgi_send_timeout 300;
+            fastcgi_read_timeout 300;
+            fastcgi_pass   127.0.0.1:9000;
+            fastcgi_index  index.php;
+            fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            include        fastcgi_params;
+        }
+        # proxy the PHP scripts to Apache listening on 127.0.0.1:80
+    }
+}
+</code></pre>
+
+<p>高度模块化设计是nginx的架构基础。nginx的模块划分图如下：</p>
+
+<p><img src="https://images-cdn.shimo.im/zBosAtuL3Tg1cr3E/nginx.gif" alt="Nginx模块划分" /></p>
+
+<p>而每个模块都有自己的配置项, 所有模块的配置项都在一个配置文件中体现, 每个配置模块有各自的配置指令（Command），比如各个模块常见的指令有：
+- ngx_http_module
+<br/>
+http (ngx_http_core_module)
+<br/>
+listen (ngx_http_module)
+<br/>
+server_name (ngx_http_core_module)
+<br/>
+access_log (ngx_http_log_module)
+<br/>
+- ngx_event_module
+<br />
+events (ngx_events_module)
+<br />
+worker_connections (ngx_event_core_module)
+<br />
+accept_mutex (ngx_event_core_module)
+<br />
+worker_aio_requests (ngx_epoll_module)
+<br />
+- ngx_mail_module
+<br />
+mail (ngx_mail_module)
+<br />
+listen (ngx_mail_core_module)
+<br />
+timeout (ngx_mail_core_module)
+<br />
+auth_http_header (ngx_mail_auth_http_module)
+<br />
+pop3_auth (ngx_mail_auth_http_module)
+<br />
+proxy_timeout (ngx_mail_proxy_module)
+<br /></p>
+
+<p>nginx.conf是在nginx启动的时候解析的，解析完成的配置项存放在ngx_cycle_t结构题的conf_ctx中。</p>
+
+<pre><code class="language-c">struct ngx_cycle_s {
+    void                  ****conf_ctx;
+    ngx_pool_t               *pool;
+
+    ngx_log_t                *log;
+    ngx_log_t                 new_log;
+    // others
+    // ....
+}
+</code></pre>
+
+<p>conf_ctx有4个*的原因是它首先指向一个存放指针的数组(核心模块的配置结构体指针)，这个数组中的指针成员同时又指向了另外一个存放指针的数组(子模块的配置结构体指针)。</p>
+
+<p><img src="https://images-cdn.shimo.im/BUpKbhD5HOwNCZFH/nginx_http_config.png!thumbnail" alt="所有http模块配置结构体管理" /></p>
+
+<p>也就是第一层数组存放了各个核心模块的指针，第二层数组存了每个核心模块的子模块的配置结构体的指针。</p>
+
+<h3 id="配置解析流程">配置解析流程</h3>
+
+<p>配置解析的函数入口为<code>ngx_init_cycle</code>,  首先准备数据结构。</p>
+
+<pre><code class="language-c">for (i = 0; ngx_modules[i]; i++) {
+    if (ngx_modules[i]-&gt;type != NGX_CORE_MODULE) {
+        continue;
+    }
+
+    module = ngx_modules[i]-&gt;ctx;
+
+    if (module-&gt;create_conf) {
+        rv = module-&gt;create_conf(cycle);
+        if (rv == NULL) {
+            ngx_destroy_pool(pool);
+            return NULL;
+        }
+        cycle-&gt;conf_ctx[ngx_modules[i]-&gt;index] = rv;
+    }
+}
+
+conf.ctx = cycle-&gt;conf_ctx;
+conf.cycle = cycle;
+conf.pool = pool;
+conf.log = log;
+conf.module_type = NGX_CORE_MODULE;
+conf.cmd_type = NGX_MAIN_CONF;
+</code></pre>
+
+<p>可以看到首先创建的是核心模块的配置结构体。</p>
+
+<p>接下来是配置解析。</p>
+
+<pre><code class="language-c">if (ngx_conf_parse(&amp;conf, &amp;cycle-&gt;conf_file) != NGX_CONF_OK) {
+    environ = senv;
+    ngx_destroy_cycle_pools(&amp;conf);
+    return NULL;
+}
+</code></pre>
+
+    </div>
+
+    
+      
+
+    
+
+    
+      
+<div class="share-box" aria-hidden="true">
+  <ul class="share">
+    <li>
+      <a class="twitter"
+         href="https://twitter.com/intent/tweet?text=nginx%e9%85%8d%e7%bd%ae%e7%ae%a1%e7%90%86%e6%ba%90%e7%a0%81%e8%a7%a3%e6%9e%90&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2fnginx%2fnginx8%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-twitter"></i>
+      </a>
+    </li>
+    <li>
+      <a class="facebook"
+         href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fcheckking.github.io%2fpost%2fnginx%2fnginx8%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-facebook"></i>
+      </a>
+    </li>
+    <li>
+      <a class="linkedin"
+         href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2fnginx%2fnginx8%2f&amp;title=nginx%e9%85%8d%e7%bd%ae%e7%ae%a1%e7%90%86%e6%ba%90%e7%a0%81%e8%a7%a3%e6%9e%90"
+         target="_blank" rel="noopener">
+        <i class="fa fa-linkedin"></i>
+      </a>
+    </li>
+    <li>
+      <a class="email"
+         href="mailto:?subject=nginx%e9%85%8d%e7%bd%ae%e7%ae%a1%e7%90%86%e6%ba%90%e7%a0%81%e8%a7%a3%e6%9e%90&amp;body=https%3a%2f%2fcheckking.github.io%2fpost%2fnginx%2fnginx8%2f">
+        <i class="fa fa-envelope"></i>
+      </a>
+    </li>
+  </ul>
+</div>
+
+
+    
+
+    
+      
+
+    
+
+  </div>
+</article>
+			</section>
+		</div>
+	</article>
+</div> 
+
+<div class="page_footer">
+	<p>&copy; Check King 2018. Powered by <a href="http://gohugo.io/">Hugo</a> and <a href="https://github.com/jhu247/minimal-academic">Minimal Academic</a>.</p>
+</div>
+    
+    
+
+
+  </body>
+</html>
