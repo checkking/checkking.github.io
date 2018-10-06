@@ -13,18 +13,6 @@
     
     
     <item>
-      <title>Test</title>
-      <link>https://checkking.github.io/post/test/</link>
-      <pubDate>Wed, 03 Oct 2018 21:08:37 +0800</pubDate>
-      <author>Emir Ribic</author>
-      <guid>https://checkking.github.io/post/test/</guid>
-      <description></description>
-      
-      <content></content>
-      
-    </item>
-    
-    <item>
       <title>关于这个博客</title>
       <link>https://checkking.github.io/about/</link>
       <pubDate>Wed, 03 Oct 2018 21:07:16 +0800</pubDate>
@@ -42,6 +30,121 @@
 &lt;li&gt;大龄码农&lt;/li&gt;
 &lt;li&gt;Backend (C/C++ golang python)&lt;/li&gt;
 &lt;li&gt;Email: Y2hlY2traW5nQGZveG1haWwuY29t&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+      
+    </item>
+    
+    <item>
+      <title>C&#43;&#43;前向声明</title>
+      <link>https://checkking.github.io/post/lang/cpp1/</link>
+      <pubDate>Fri, 01 Jan 2016 21:07:16 +0800</pubDate>
+      <author>Emir Ribic</author>
+      <guid>https://checkking.github.io/post/lang/cpp1/</guid>
+      <description></description>
+      
+      <content>
+
+&lt;h4 id=&#34;为什么需要前向声明&#34;&gt;为什么需要前向声明?&lt;/h4&gt;
+
+&lt;p&gt;编译器确保在文件中使用的函数没有拼写错误或参数个数不对，因此它坚持要在使用函数之前要看到它的声明，
+也就是为了方便编译器生成目标代码，不至于编译成功，运行的时候却失败。比如下面的例子：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-cpp&#34;&gt;// file func.cpp
+#include &amp;lt;stdio.h&amp;gt;
+
+void func(int a, float b) {
+    (void)a;
+    (void)b;
+    printf(&amp;quot;func(int a, float b)\n&amp;quot;);
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-cpp&#34;&gt;// file main.cpp
+#include &amp;lt;stdio.h&amp;gt;
+
+void func(int a, int b) {
+    (void)a;
+    (void)b;
+    printf(&amp;quot;func(int a, int b)\n&amp;quot;);
+}
+// void func(int a, float b);
+
+int main(int argc, char** argv) {
+    func(1, 3.0f);
+    return 0;
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;我们本意想调用&lt;code&gt;void func(int a, float b)&lt;/code&gt;，但是程序执行的时候却调用了&lt;code&gt;void func(int a, int b)&lt;/code&gt;，这种错误
+很难发现，因为在编译的时候没有报错。&lt;/p&gt;
+
+&lt;p&gt;如果我们把&lt;code&gt;main.cpp&lt;/code&gt;改成下面的：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-cpp&#34;&gt;#include &amp;lt;stdio.h&amp;gt;
+
+void func(int a, int b) {
+    (void)a;
+    (void)b;
+    printf(&amp;quot;func(int a, int b)\n&amp;quot;);
+}
+
+void func(int a, float b);
+
+int main(int argc, char** argv) {
+    func(1, 3.0f);
+    return 0;
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;程序就可以正确的调用&lt;code&gt;void func(int a, float b)&lt;/code&gt;，因此前向声明还是很有必要的。也就是前向声明帮助编译器做出正确的决策。&lt;/p&gt;
+
+&lt;h4 id=&#34;前向声明可以减少编译时间&#34;&gt;前向声明可以减少编译时间&lt;/h4&gt;
+
+&lt;p&gt;我们可以通过&lt;code&gt;#include&lt;/code&gt;来得到结构体、类或函数的声明，但是这样会减慢编译时间。如果一个&lt;code&gt;.h&lt;/code&gt;文件包含很多声明，但是我们只需要使用其中的一两个，如果使用&lt;code&gt;#include&lt;/code&gt;，这样生成的中间文件会很大，编译时间会增多。用前向声明可以避免这个问题。如果工程很大的话，这个问题更明显，使用前向声明往往可以把编译时间从几个小时减小到几分钟。&lt;/p&gt;
+
+&lt;h4 id=&#34;打破循环-include&#34;&gt;打破循环&lt;code&gt;#include&lt;/code&gt;&lt;/h4&gt;
+
+&lt;p&gt;如果两个类的声明都需要用到对方，用通常的&lt;code&gt;#include&lt;/code&gt;来引入各自的头文件，可能导致循环引用的问题。比如：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-cpp&#34;&gt;// file Car.h
+#include &amp;quot;Wheel.h&amp;quot;  // Include Wheel&#39;s definition so it can be used in Car.
+#include &amp;lt;vector&amp;gt;
+
+class Car
+{
+    std::vector&amp;lt;Wheel&amp;gt; wheels;
+};
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-cpp&#34;&gt;// file Wheel.h
+#include &amp;quot;Car.h&amp;quot;
+class Wheel
+{
+    Car* car;
+};
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;而且通过&lt;code&gt;#ifndefine&lt;/code&gt;是解决不了这个问题的。这时候就需要通过前向声明来解决这个问题了。修改wheel.h如下：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-cpp&#34;&gt;// file Wheel.h
+class Car;
+class Wheel
+{
+    Car* car;
+};
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&#34;前向声明的局限&#34;&gt;前向声明的局限&lt;/h4&gt;
+
+&lt;p&gt;有些时候，class的完整定义是必需的，例如要访问calss的成员，或者要知道class的大小以便分配空间。这时候前向声明是不行的，
+只能用&lt;code&gt;#include&lt;/code&gt;, 以下几种不需要看到其完整定义的：&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;定义或声明&lt;code&gt;Foo*&lt;/code&gt;和&lt;code&gt;Foo&amp;amp;&lt;/code&gt;, 包括用于函数参数、返回类型、局部变量、类成员变量等。这是因为C++的内存模型是flat的，Foo的定义
+无法改变Foo的指针或引用的含义。&lt;/li&gt;
+&lt;li&gt;声明一个以&lt;code&gt;Foo&lt;/code&gt;为参数或返回类型的函数，如&lt;code&gt;Foo bar()&lt;/code&gt;或&lt;code&gt;void bar(Foo f)&lt;/code&gt;, 但是，如果代码里调用这个函数就需要知道Foo的定义，
+因为编译器要使用Foo的拷贝构造函数和析构函数，因此至少需要看到他们的声明(虽然构造函数没有参数，但有可能位于&lt;code&gt;private&lt;/code&gt;区)。&lt;/li&gt;
 &lt;/ul&gt;
 </content>
       

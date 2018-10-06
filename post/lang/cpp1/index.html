@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"  lang="en-us">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<title>C&#43;&#43;前向声明 | My New Hugo Site</title>
+
+<meta property='og:title' content='C&#43;&#43;前向声明 - My New Hugo Site'>
+<meta property='og:description' content='为什么需要前向声明? 编译器确保在文件中使用的函数没有拼写错误或参数个数不对，因此它坚持要在使用函数之前要看到它的声明， 也就是为了方便编译器生成目标代码，不至于编译成功，运行的时候却失败。比如下面的例子：
+// file func.cpp #include &lt;stdio.h&gt; void func(int a, float b) { (void)a; (void)b; printf(&quot;func(int a, float b)\n&quot;); }  // file main.cpp #include &lt;stdio.h&gt; void func(int a, int b) { (void)a; (void)b; printf(&quot;func(int a, int b)\n&quot;); } // void func(int a, float b); int main(int argc, char** argv) { func(1, 3.0f); return 0; }  我们本意想调用void func(int a, float b)，但是程序执行的时候却调用了void func(int a, int b)，这种错误 很难发现，因为在编译的时候没有报错。
+如果我们把main.cpp改成下面的：'>
+<meta property='og:url' content='https://checkking.github.io/post/lang/cpp1/'>
+<meta property='og:site_name' content='My New Hugo Site'>
+<meta property='og:type' content='article'><meta property='og:image' content='https://www.gravatar.com/avatar/7f737ec3d15ee739b2bec7984b64a268?s=256'><meta property='article:section' content='Post'><meta property='article:published_time' content='2016-01-01T21:07:16&#43;08:00'/><meta property='article:modified_time' content='2016-01-01T21:07:16&#43;08:00'/><meta name='twitter:card' content='summary'><meta name='twitter:site' content='@'><meta name='twitter:creator' content='@'>
+
+<link href="https://checkking.github.io/index.xml" rel="alternate" type="application/rss+xml" title="My New Hugo Site" />
+
+<link rel="stylesheet" href="/css/style.css"/><link rel='stylesheet' href='https://checkking.github.io/css/custom.css'><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+<meta name="msapplication-TileColor" content="#da532c">
+<meta name="theme-color" content="#ffffff">
+</head>
+<body>
+<section class="section">
+  <div class="container">
+    <nav class="nav">
+      <div class="nav-left">
+        <a class="nav-item" href="https://checkking.github.io/"><h1 class="title is-4">My New Hugo Site</h1></a>
+      </div>
+      <div class="nav-right">
+        <nav class="nav-item level is-mobile"><a class="level-item" aria-label="email" href='mailto:checkking@foxmail.com' target='_blank' rel='noopener'>
+            <span class="icon">
+              <i class><svg viewbox='0 0 24 24' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' aria-hidden='true'>
+    
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+    <polyline points="22,6 12,13 2,6"/>
+    
+  </svg></i>
+            </span>
+          </a><a class="level-item" aria-label="github" href='https://github.com/checkking' target='_blank' rel='noopener'>
+            <span class="icon">
+              <i class><svg viewbox='0 0 24 24' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' aria-hidden='true'>
+    
+    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+    
+  </svg></i>
+            </span>
+          </a><a class="level-item" aria-label="rss" href='/index.xml' target='_blank' rel='noopener'>
+            <span class="icon">
+              <i class><svg viewbox='0 0 24 24' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' aria-hidden='true'>
+    
+    <path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle>
+    
+  </svg></i>
+            </span>
+          </a></nav>
+      </div>
+    </nav>
+
+    <nav class="nav">
+      
+
+      
+    </nav>
+
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="subtitle tags is-6 is-pulled-right">
+      
+    </div>
+    <h2 class="subtitle is-6">January 1, 2016</h2>
+    <h1 class="title">C&#43;&#43;前向声明</h1>
+    
+    <div class="content">
+      
+
+<h4 id="为什么需要前向声明">为什么需要前向声明?</h4>
+
+<p>编译器确保在文件中使用的函数没有拼写错误或参数个数不对，因此它坚持要在使用函数之前要看到它的声明，
+也就是为了方便编译器生成目标代码，不至于编译成功，运行的时候却失败。比如下面的例子：</p>
+
+<pre><code class="language-cpp">// file func.cpp
+#include &lt;stdio.h&gt;
+
+void func(int a, float b) {
+    (void)a;
+    (void)b;
+    printf(&quot;func(int a, float b)\n&quot;);
+}
+</code></pre>
+
+<pre><code class="language-cpp">// file main.cpp
+#include &lt;stdio.h&gt;
+
+void func(int a, int b) {
+    (void)a;
+    (void)b;
+    printf(&quot;func(int a, int b)\n&quot;);
+}
+// void func(int a, float b);
+
+int main(int argc, char** argv) {
+    func(1, 3.0f);
+    return 0;
+}
+</code></pre>
+
+<p>我们本意想调用<code>void func(int a, float b)</code>，但是程序执行的时候却调用了<code>void func(int a, int b)</code>，这种错误
+很难发现，因为在编译的时候没有报错。</p>
+
+<p>如果我们把<code>main.cpp</code>改成下面的：</p>
+
+<pre><code class="language-cpp">#include &lt;stdio.h&gt;
+
+void func(int a, int b) {
+    (void)a;
+    (void)b;
+    printf(&quot;func(int a, int b)\n&quot;);
+}
+
+void func(int a, float b);
+
+int main(int argc, char** argv) {
+    func(1, 3.0f);
+    return 0;
+}
+</code></pre>
+
+<p>程序就可以正确的调用<code>void func(int a, float b)</code>，因此前向声明还是很有必要的。也就是前向声明帮助编译器做出正确的决策。</p>
+
+<h4 id="前向声明可以减少编译时间">前向声明可以减少编译时间</h4>
+
+<p>我们可以通过<code>#include</code>来得到结构体、类或函数的声明，但是这样会减慢编译时间。如果一个<code>.h</code>文件包含很多声明，但是我们只需要使用其中的一两个，如果使用<code>#include</code>，这样生成的中间文件会很大，编译时间会增多。用前向声明可以避免这个问题。如果工程很大的话，这个问题更明显，使用前向声明往往可以把编译时间从几个小时减小到几分钟。</p>
+
+<h4 id="打破循环-include">打破循环<code>#include</code></h4>
+
+<p>如果两个类的声明都需要用到对方，用通常的<code>#include</code>来引入各自的头文件，可能导致循环引用的问题。比如：</p>
+
+<pre><code class="language-cpp">// file Car.h
+#include &quot;Wheel.h&quot;  // Include Wheel's definition so it can be used in Car.
+#include &lt;vector&gt;
+
+class Car
+{
+    std::vector&lt;Wheel&gt; wheels;
+};
+</code></pre>
+
+<pre><code class="language-cpp">// file Wheel.h
+#include &quot;Car.h&quot;
+class Wheel
+{
+    Car* car;
+};
+</code></pre>
+
+<p>而且通过<code>#ifndefine</code>是解决不了这个问题的。这时候就需要通过前向声明来解决这个问题了。修改wheel.h如下：</p>
+
+<pre><code class="language-cpp">// file Wheel.h
+class Car;
+class Wheel
+{
+    Car* car;
+};
+</code></pre>
+
+<h4 id="前向声明的局限">前向声明的局限</h4>
+
+<p>有些时候，class的完整定义是必需的，例如要访问calss的成员，或者要知道class的大小以便分配空间。这时候前向声明是不行的，
+只能用<code>#include</code>, 以下几种不需要看到其完整定义的：</p>
+
+<ul>
+<li>定义或声明<code>Foo*</code>和<code>Foo&amp;</code>, 包括用于函数参数、返回类型、局部变量、类成员变量等。这是因为C++的内存模型是flat的，Foo的定义
+无法改变Foo的指针或引用的含义。</li>
+<li>声明一个以<code>Foo</code>为参数或返回类型的函数，如<code>Foo bar()</code>或<code>void bar(Foo f)</code>, 但是，如果代码里调用这个函数就需要知道Foo的定义，
+因为编译器要使用Foo的拷贝构造函数和析构函数，因此至少需要看到他们的声明(虽然构造函数没有参数，但有可能位于<code>private</code>区)。</li>
+</ul>
+
+      
+      <div class="related">
+</div>
+      
+    </div>
+    
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <aside><div id="disqus_thread"></div></aside>
+    <script type="text/javascript">
+      var disqus_shortname = 'checkking';
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container has-text-centered">
+    <p>&copy; <a href="https://github.com/checkking">checkking</a> 2018</p>
+    
+      <p>Powered by <a href="https://gohugo.io/">Hugo</a> &amp; <a href="https://github.com/ribice/kiss">Kiss</a>.</p>
+    
+  </div>
+</section>
+
+<script type="text/javascript">
+  var _paq = _paq || [];
+  _paq.push(['trackPageView']);
+  _paq.push(['enableLinkTracking']);
+  (function() {
+    var u="\/\/matomo.example.com\/";
+    _paq.push(['setTrackerUrl', u+'piwik.php']);
+    _paq.push(['setSiteId', '1']);
+    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+    g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.js'; s.parentNode.insertBefore(g,s);
+  })();
+</script>
+<noscript>
+  <img src="//matomo.example.com/piwik.php?idsite=1&amp;rec=1" style="border:0" alt="" />
+</noscript>
+
+
+</body>
+</html>
+
