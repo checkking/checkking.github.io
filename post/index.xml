@@ -1,16 +1,96 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Posts on My New Hugo Site</title>
+    <title>Posts on Check King&#39;s Blog</title>
     <link>https://checkking.github.io/post/</link>
-    <description>Recent content in Posts on My New Hugo Site</description>
+    <description>Recent content in Posts on Check King&#39;s Blog</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>en-us</language>
-    <copyright>&amp;copy; &lt;a href=&#34;https://github.com/checkking&#34;&gt;checkking&lt;/a&gt; 2018</copyright>
-    <lastBuildDate>Tue, 28 Feb 2017 21:07:16 +0800</lastBuildDate>
+    <copyright>&amp;copy; Check King 2018</copyright>
+    <lastBuildDate>Tue, 21 Mar 2017 21:07:16 +0800</lastBuildDate>
     
 	<atom:link href="https://checkking.github.io/post/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>protobuf之ZeroCopy</title>
+      <link>https://checkking.github.io/post/cs/pb_zero_copy/</link>
+      <pubDate>Tue, 21 Mar 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/pb_zero_copy/</guid>
+      <description>引言 我们在序列化、反序列化 Protobuf message 时为了最小化内存拷贝，可以实现其提供的 ZeroCopyStream（包括 ZeroCopyOutputStream 和 ZeroCopyInputStream）接口类，ZeroCopyStream 要求能够进行 buffer 的分配，这体现在一个名为 Next 的接口上，这样做的好处是避免进行内存的拷贝，为了方便理解，我们来看一下 ZeroCopyInputStream 和传统的 stream 的对比.
+典型的做法 /* 我们调用 input stream 的 Read 从内存中读取数据到 buffer * 这里进行了一次拷贝操作，也就是拷贝内存中的数据到 buffer 中 * 之后 DoSomething 才能处理此数据 */ char buffer[BUFFER_SIZE]; input-&amp;gt;Read(buffer, BUFFER_SIZE); DoSomething(buffer, BUFFER_SIZE);  ZeroCopyStream /* * 使用 Next 接口的做法，input stream 内部有责任提供（分配）buffer * 也就是说，DoSomething 可以直接操作内部的内存，而无需拷贝后再操作 * 这就避免了一次内存拷贝 */ const void* buffer; int size; input-&amp;gt;Next(&amp;amp;buffer, &amp;amp;size); DoSomething(buffer, size);  protbuff 相关接口 protobuf作为一个消息格式的利器，在io的接口设计上也非常巧妙，本文主要想介绍下其中ZeroCopy的思想以及用途。</description>
+    </item>
+    
+    <item>
+      <title>protobuf反射机制的应用-pb转成map</title>
+      <link>https://checkking.github.io/post/cs/pb_reflection/</link>
+      <pubDate>Tue, 21 Mar 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/pb_reflection/</guid>
+      <description>背景 之前做的一个广告模块，要用用户请求构造特征值去请求机器学习模型模块。我这个模块与下游模块的接口之间的序列化协议是protobuf，与上游机器学习模块的序列化协议是公司内部的，而且要求将特征名，特征值都表示成字符串传给机器学习模块做在线预测。因此这当中就有一个转化需求：将protobuf转成map。
+反射相关接口 要介绍pb的反射功能，先看一个相关的UML示例图：
+各个类以及接口说明:
+Message Person是自定义的pb类型，继承自Message. MessageLite作为Message基类，更加轻量级一些。 通过Message的两个接口GetDescriptor/GetReflection，可以获取该类型对应的Descriptor/Reflection。
+Descriptor Descriptor是对message类型定义的描述，包括message的名字、所有字段的描述、原始的proto文件内容等。 本文中我们主要关注跟字段描述相关的接口，例如：
+ 获取所有字段的个数：int field_count() const 获取单个字段描述类型FieldDescriptor的接口有很多个，例如  const FieldDescriptor* field(int index) const;//根据定义顺序索引获取 const FieldDescriptor* FindFieldByNumber(int number) const;//根据tag值获取 const FieldDescriptor* FindFieldByName(const string&amp;amp; name) const;//根据field name获取  FieldDescriptor FieldDescriptor描述message中的单个字段，例如字段名，字段属性(optional/required/repeated)等。 对于proto定义里的每种类型，都有一种对应的C++类型，例如：
+enum CppType { CPPTYPE_INT32 = 1, //TYPE_INT32, TYPE_SINT32, TYPE_SFIXED32 }  获取类型的label属性：
+enum Label { LABEL_OPTIONAL = 1, //optional LABEL_REQUIRED = 2, //required LABEL_REPEATED = 3, //repeated MAX_LABEL = 3, //Constant useful for defining lookup tables indexed by Label.</description>
+    </item>
+    
+    <item>
+      <title>protobuf更新Message原则</title>
+      <link>https://checkking.github.io/post/cs/pb_update_message_roles/</link>
+      <pubDate>Tue, 21 Mar 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/pb_update_message_roles/</guid>
+      <description>If an existing message type no longer meets all your needs – for example, you&amp;rsquo;d like the message format to have an extra field – but you&amp;rsquo;d still like to use code created with the old format, don&amp;rsquo;t worry! It&amp;rsquo;s very simple to update message types without breaking any of your existing code. Just remember the following rules: - Don&amp;rsquo;t change the numeric tags for any existing fields. - Any new fields that you add should be optional or repeated.</description>
+    </item>
+    
+    <item>
+      <title>Google Protobuff编码</title>
+      <link>https://checkking.github.io/post/cs/pb_internal/</link>
+      <pubDate>Sun, 19 Mar 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/pb_internal/</guid>
+      <description>Base 128 Varints 官方描述：Each byte in a varint, except the last byte, has the most significant bit (msb) set – this indicates that there are further bytes to come. The lower 7 bits of each byte are used to store the two&amp;rsquo;s complement representation of the number in groups of 7 bits, least significant group first. 也就是：
+ 除了最后一个字节，varint中的每个字节的最高位设为1，表示后面还有字节出现 每个字节的低7位看成是一个组（group），这个组和他相邻的下一个7位组共同存储某个整形的“组合表示”，最低有效组在前面。  例子： 1. 一个字节。下面只有一个字节，所以最高位是0，表示十进制1
+0000 0001   两个字节 bash 1010 1100 0000 0010  由于第一个字节后面还有一个字节，所以第一个字节的最高位设置为1，表示后面还有后继字节，第二个字节的最高位为0。去掉每个字节的最高位，我们对两个字节进行分组。第一个7位组：0101100，第二个7位组：0000010，组合起来就是：0101100 0000010。 由于protobuf采用小端字节序(关于字节序)，也就是数据的低位保存在内存的低地址中，调整为0101100 0000010, 十进制为2^8 + 2^5 + 2^3 + 2^2 = 300  300 的二进制表示为 100101100，通过 Varint 编码后的二进制表示为 10101100 00000010，详细过程如下： message数据格式 比如我们定义了proto</description>
+    </item>
+    
+    <item>
+      <title>非阻塞socket调用connect</title>
+      <link>https://checkking.github.io/post/cs/nonblock_socket_conn/</link>
+      <pubDate>Wed, 15 Mar 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/nonblock_socket_conn/</guid>
+      <description>我们知道，如果socket为TCP套接字，则connect函数会激发TCP的三次握手过程，而三次握手是需要一些时间的，内核中对connect的超时限制是75秒，就是说如果超过75秒则connect会由于超时而返回失败。但是如果对端服务器由于某些问题无法连接，那么每一个客户端发起的connect都会要等待75才会返回，因为socket默认是阻塞的。对于一些线上服务来说，假设某些对端服务器出问题了，在这种情况下就有可能引发严重的后果。或者在有些时候，我们不希望在调用connect的时候阻塞住，有一些额外的任务需要处理。
+这种场景下，我们就可以将socket设置为非阻塞，如下代码：
+int flags = fcntl(c_fd, F_GETFL, 0); if(flags &amp;lt; 0) { return 0; } fcntl(c_fd, F_SETFL, flags | O_NONBLOCK);  当我们将socket设置为NONBLOCK后，在调用connect的时候，如果操作不能马上完成，那connect便会立即返回，此时connect有可能返回-1， 此时需要根据相应的错误码errno，来判断连接是否在继续进行。比较完整的做法如下:
+int sockfd = sockets::createNonblockingOrDie(_serverAddr.family()); int ret = sockets::connect(sockfd, _serverAddr.getSockAddr()); int savedErrno = (ret == 0) ? 0 : errno; switch (savedErrno) { case 0: case EINPROGRESS: case EINTR: case EISCONN: connecting(sockfd); break; case EAGAIN: case EADDRINUSE: case EADDRNOTAVAIL: case ECONNREFUSED: case ENETUNREACH: retry(sockfd); break; case EACCES: case EPERM: case EAFNOSUPPORT: case EALREADY: case EBADF: case EFAULT: case ENOTSOCK: LOG_ERROR &amp;lt;&amp;lt; &amp;quot;connect error in Connector::startInLoop &amp;quot; &amp;lt;&amp;lt; savedErrno; sockets::close(sockfd); break; default: LOG_ERROR &amp;lt;&amp;lt; &amp;quot;Unexpected error in Connector::startInLoop &amp;quot; &amp;lt;&amp;lt; savedErrno; sockets::close(sockfd); break; }  使用非阻塞 connect 需要注意的问题是： 1.</description>
+    </item>
+    
+    <item>
+      <title>tcp自连接问题</title>
+      <link>https://checkking.github.io/post/cs/tcp_self_conn/</link>
+      <pubDate>Sun, 12 Mar 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/tcp_self_conn/</guid>
+      <description>现象重现 在linux主机下运行下面的python脚本，等待一会即可出现。
+import socket import time connected=False while (not connected): try: sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM) sock.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1) sock.connect((&#39;127.0.0.1&#39;,55555)) connected=True except socket.error,(value,message): print message if not connected: print &amp;quot;reconnect&amp;quot; print &amp;quot;tcp self connection occurs!&amp;quot; print &amp;quot;try to run follow command : &amp;quot; print &amp;quot;netstat -an|grep 55555&amp;quot; time.sleep(1800)  截图如下： tcp自连接出现了！
+原因分析 从上面的python脚本中，可以看到它只是在不断地尝试连接55555这个端口，并且是没有socket监听这个端口，那么为何最后却建立连接了呢？原因在于客户端在连接服务端时，如果没有指定端口号，系统会随机分配一个。随机就意味着可能分配一个和目的端口一样的数字，此时就会出现自连接情况了。因为对于tcp协议来讲，连接的流程是走的通，三次握手整个阶段都合法，连接自然可以建立。
+自连接的坏处显而易见，当程序去connect一个不处于监听的端口时，必然期待其连接失败，如果自连接出现，就意味着该端口被占用了，那么：
+ 真正需要监听该端口的服务会启动失败，抛出端口已被占用的异常。 客户端无法正常完成数据通信，因为这是个自连接，并不是一个正常的服务。  解决思路 解决办法也很简单，只要保证客户端随机的端口不会和服务监听的端口相同就可以了。那么我们得先了解随机的范围，这个范围对应linux的/etc/sysctl.conf的net.ipv4.ip_local_port_range参数，其默认值是32768 61000。也就是说随机端口会在这个范围内出现，试验中我们选定了55555这个端口，所以出现了自连接现象。此时只要限定服务监听在32768端口以下，就不会出现自连接现象了。当然，你可以修改这个配置，只要注意保证监听端口不再配置范围内就可以避免自连接问题了。 t</description>
+    </item>
+    
+    <item>
+      <title>pthread_cond_wait的虚假唤醒</title>
+      <link>https://checkking.github.io/post/cs/spurious_wakeup/</link>
+      <pubDate>Mon, 06 Mar 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/spurious_wakeup/</guid>
+      <description>pthread_cond_wait通常用法 pthread_cond_wait的通常使用方法如下：
+#include &amp;lt;pthread.h&amp;gt; struct msg { struct msg *m_next; /* ... more stuff here ... */ }; struct msg *workq; pthread_cond_t qready = PTHREAD_COND_INITIALIZER; pthread_mutex_t qlock = PTHREAD_MUTEX_INITIALIZER; void process_msg(void) { struct msg *mp; for (;;) { pthread_mutex_lock(&amp;amp;qlock); while (workq == NULL) { // (1) pthread_cond_wait(&amp;amp;qready, &amp;amp;qlock); } } mp = workq; workq = mp-&amp;gt;m_next; pthread_mutex_unlock(&amp;amp;qlock); /* now process the message mp */ } void enqueue_msg(struct msg *mp) { pthread_mutex_lock(&amp;amp;qlock); mp-&amp;gt;m_next = workq; workq = mp; pthread_mutex_unlock(&amp;amp;qlock); pthread_cond_signal(&amp;amp;qready); }  (1)处为什么要用while, 而不是简单的if呢？这是因为为了避免Spurious wakeup。</description>
+    </item>
     
     <item>
       <title>谈谈enable_shared_from_this</title>

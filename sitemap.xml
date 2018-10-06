@@ -8,6 +8,41 @@
   </url>
   
   <url>
+    <loc>https://checkking.github.io/post/cs/pb_zero_copy/</loc>
+    <lastmod>2017-03-21T21:07:16+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://checkking.github.io/post/cs/pb_reflection/</loc>
+    <lastmod>2017-03-21T21:07:16+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://checkking.github.io/post/cs/pb_update_message_roles/</loc>
+    <lastmod>2017-03-21T21:07:16+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://checkking.github.io/post/cs/pb_internal/</loc>
+    <lastmod>2017-03-19T21:07:16+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://checkking.github.io/post/cs/nonblock_socket_conn/</loc>
+    <lastmod>2017-03-15T21:07:16+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://checkking.github.io/post/cs/tcp_self_conn/</loc>
+    <lastmod>2017-03-12T21:07:16+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://checkking.github.io/post/cs/spurious_wakeup/</loc>
+    <lastmod>2017-03-06T21:07:16+08:00</lastmod>
+  </url>
+  
+  <url>
     <loc>https://checkking.github.io/post/lang/cpp2/</loc>
     <lastmod>2017-02-28T21:07:16+08:00</lastmod>
   </url>
@@ -48,6 +83,11 @@
   </url>
   
   <url>
+    <loc>https://checkking.github.io/categories/</loc>
+    <priority>0</priority>
+  </url>
+  
+  <url>
     <loc>https://checkking.github.io/</loc>
     <lastmod>2018-10-03T21:07:16+08:00</lastmod>
     <priority>0</priority>
@@ -55,7 +95,7 @@
   
   <url>
     <loc>https://checkking.github.io/post/</loc>
-    <lastmod>2017-02-28T21:07:16+08:00</lastmod>
+    <lastmod>2017-03-21T21:07:16+08:00</lastmod>
     <priority>0</priority>
   </url>
   

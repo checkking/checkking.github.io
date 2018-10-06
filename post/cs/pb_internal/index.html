@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="generator" content="Hugo 0.49" />
+  <meta name="author" content="Check King">
+
+  
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Merriweather:400,700%7cOpen&#43;Sans:400,400italic,700%7cRoboto&#43;Mono%25!%28EXTRA%20*hugolib.PageOutput=Page%28/post/cs/pb_internal.md%29%29">
+  <link rel="stylesheet" href="/styles.css">
+  
+
+  
+
+  
+  <link rel="alternate" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  <link rel="feed" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/img/favicon/site.webmanifest">
+  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="icon" type="image/png" href="/img/icon.png">
+  <link rel="apple-touch-icon" type="image/png" href="/img/icon-192.png">
+
+  <link rel="canonical" href="https://checkking.github.io/post/cs/pb_internal/">
+
+  <meta property="twitter:card" content="summary_large_image">
+  
+  <meta property="twitter:site" content="@">
+  <meta property="twitter:creator" content="@">
+  
+  <meta property="og:site_name" content="Check King&#39;s Blog">
+  <meta property="og:url" content="https://checkking.github.io/post/cs/pb_internal/">
+  <meta property="og:title" content="Google Protobuff编码 | Check King&#39;s Blog">
+  <meta property="og:locale" content="en-us">
+  
+  <meta property="article:published_time" content="2017-03-19T21:07:16&#43;08:00">
+  
+  <meta property="article:modified_time" content="2017-03-19T21:07:16&#43;08:00">
+  
+
+  <title>Google Protobuff编码 | Check King&#39;s Blog</title>
+
+  
+
+</head>
+<body>
+
+<style type="text/css">
+
+.masthead-hero {
+  background-image: url("https://checkking.github.io/img/hero.jpg");
+}
+</style>
+
+<div class="masthead-hero"></div>
+
+
+<div id="main" role="main">
+  <div class="sidebar sticky" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <div class="author-avatar">
+    <a href="/">
+      <img src="/img/avatar.png" alt="Check King" itemprop="image">
+    </a>
+  </div>
+  <div class="author-content">
+    <h3 class="author-name" itemprop="name">Check King</h3>
+    <p class="author-bio" itemprop="description">A backend programmer.</p>
+  </div>
+  <div class="author-urls-wrapper">
+    <ul class="author-urls social-icons" aria-hidden="true">
+      <li itemprop="homeLocation" itemscope itemtype="http://schema.org/Place">
+        <span itemprop="name">Shenzhen China</span>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-instagram"></i>
+          Instagram
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-linkedin"></i>
+          LinkedIn
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-twitter"></i>
+          Twitter
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="//github.com/checkking" target="_blank" rel="noopener">
+          <i class="fa fa-github"></i>
+          Github
+        </a>
+      </li>
+      
+    </ul>  
+  </div>
+</div>
+
+  <article class="page">
+		<div class="page_container">
+			<section class="page_content">
+				<div class="navbar-hero">
+	<nav>
+		<a href="/">Home</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/projects">Projects</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/blog">Blog</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/about">About</a>
+	</nav>
+</div>
+				<article class="post" itemscope itemtype="http://schema.org/Article">
+  <div class="post-container">
+    <h1 itemprop="name"><a href="https://checkking.github.io/post/cs/pb_internal/">Google Protobuff编码</a></h1>
+
+    
+      
+
+<div class="post-metadata">
+
+  <span class="post-date">
+    
+    <time datetime="2017-03-19 21:07:16 &#43;0800 CST" itemprop="datePublished dateModified">
+      Mar 19, 2017
+    </time>
+  </span>
+
+  
+
+</div>
+
+    
+
+    <div class="post-style" itemprop="articleBody">
+      
+      
+
+<h3 id="base-128-varints">Base 128 Varints</h3>
+
+<p>官方描述：Each byte in a varint, except the last byte, has the most significant bit (msb) set – this indicates that there are further bytes to come. The lower 7 bits of each byte are used to store the two&rsquo;s complement representation of the number in groups of 7 bits, <strong>least significant group first</strong>.
+也就是：</p>
+
+<ol>
+<li>除了最后一个字节，varint中的每个字节的最高位设为1，表示后面还有字节出现</li>
+<li>每个字节的低7位看成是一个组（group），这个组和他相邻的下一个7位组共同存储某个整形的“组合表示”，最低有效组在前面。</li>
+</ol>
+
+<p>例子：
+1. 一个字节。下面只有一个字节，所以最高位是0，表示十进制1</p>
+
+<pre><code class="language-bash">0000 0001
+</code></pre>
+
+<ol>
+<li>两个字节
+<code>bash
+1010 1100 0000 0010
+</code>
+由于第一个字节后面还有一个字节，所以第一个字节的最高位设置为1，表示后面还有后继字节，第二个字节的最高位为0。去掉每个字节的最高位，我们对两个字节进行分组。第一个7位组：0101100，第二个7位组：0000010，组合起来就是：0101100 0000010。
+由于protobuf采用小端字节序(<a href="https://en.wikipedia.org/wiki/Endianness" target="_blank">关于字节序</a>)，也就是数据的低位保存在内存的低地址中，调整为<code>0101100 0000010</code>, 十进制为<code>2^8 + 2^5 + 2^3 + 2^2 = 300</code></li>
+</ol>
+
+<p>300 的二进制表示为 100101100，通过 Varint 编码后的二进制表示为 10101100 00000010，详细过程如下：
+<img src="https://images-cdn.shimo.im/oNCQTvgPkeARF3R6/illustration_3.png!thumbnail" alt="编码" /></p>
+
+<h3 id="message数据格式">message数据格式</h3>
+
+<p>比如我们定义了proto</p>
+
+<pre><code class="language-cpp">message Test1 {
+  required int32 a = 1;
+}
+</code></pre>
+
+<p>构造Test1对象，赋值a并且序列化到data</p>
+
+<pre><code class="language-cpp">    Test1 test;
+    test.set_a(150);
+
+    std::string data;
+    test.SerializeToString(&amp;data);
+</code></pre>
+
+<p>查看data:<code>08 96 01</code>.
+可以看到相比xml/json等包装数据的方案，pb数据非常精简。</p>
+
+<p>pb数据是一种[key, value]的数据格式，在序列化时也是如此，其中key使用的是该字段的field_number与wire type取|后的值。</p>
+
+<p>field_number就是定义proto时使用的tag序号，比如对前面的proto字段a，对应的field_number=1。</p>
+
+<p>wire type的取值有很多</p>
+
+<table>
+<thead>
+<tr>
+<th align="center">Type</th>
+<th align="center">Meaning</th>
+<th align="center">Used For</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td align="center">0</td>
+<td align="center">Varint</td>
+<td align="center">int32, int64, uint32, uint64, sint32, sint64, bool, enum</td>
+</tr>
+
+<tr>
+<td align="center">1</td>
+<td align="center">64-bit</td>
+<td align="center">fixed64, sfixed64, double</td>
+</tr>
+
+<tr>
+<td align="center">2</td>
+<td align="center">Length-delimited</td>
+<td align="center">string, bytes, embedded messages, packed repeated fields</td>
+</tr>
+
+<tr>
+<td align="center">3</td>
+<td align="center">Start group</td>
+<td align="center">groups(deprecated)</td>
+</tr>
+
+<tr>
+<td align="center">4</td>
+<td align="center">End group</td>
+<td align="center">groups(deprecated)</td>
+</tr>
+
+<tr>
+<td align="center">5</td>
+<td align="center">32-bit</td>
+<td align="center">fixed32, sfixed32, float</td>
+</tr>
+</tbody>
+</table>
+
+<p>key的计算方式为(field_number &lt;&lt; 3) | wire_type，即低位记录wire_type，高位记录field_number。</p>
+
+<pre><code class="language-cpp">// Number of bits in a tag which identify the wire type.
+static const int kTagTypeBits = 3;
+
+#define GOOGLE_PROTOBUF_WIRE_FORMAT_MAKE_TAG(FIELD_NUMBER, TYPE)                  \
+  static_cast&lt;uint32&gt;(                                                   \
+    ((FIELD_NUMBER) &lt;&lt; ::google::protobuf::internal::WireFormatLite::kTagTypeBits) \
+      | (TYPE))
+</code></pre>
+
+<p>然后再进行varint编码。
+因此我们可以得到前面的例子里key为<code>varint(1 &lt;&lt; 3 | 0) = 0x08</code>，value为<code>0x96 0x01</code>。</p>
+
+<p>序列化key-value采用直接连接的方式，因此编码后的数据为<code>0x08 0x96 0x01</code>。</p>
+
+<p>注意到varint编码也应用在了key的计算上，使用非常频繁，或许是基于这个原因，pb里实现了一种性能更高的方案（<code>coded_stream.cc</code>）。</p>
+
+<pre><code class="language-cpp">inline uint8* CodedOutputStream::WriteVarint32FallbackToArrayInline(
+    uint32 value, uint8* target) {
+  target[0] = static_cast&lt;uint8&gt;(value | 0x80);
+  if (value &gt;= (1 &lt;&lt; 7)) {
+    target[1] = static_cast&lt;uint8&gt;((value &gt;&gt;  7) | 0x80);
+    if (value &gt;= (1 &lt;&lt; 14)) {
+      target[2] = static_cast&lt;uint8&gt;((value &gt;&gt; 14) | 0x80);
+      if (value &gt;= (1 &lt;&lt; 21)) {
+        target[3] = static_cast&lt;uint8&gt;((value &gt;&gt; 21) | 0x80);
+        if (value &gt;= (1 &lt;&lt; 28)) {
+          target[4] = static_cast&lt;uint8&gt;(value &gt;&gt; 28);
+          return target + 5;
+        } else {
+          target[3] &amp;= 0x7F;
+          return target + 4;
+        }
+      } else {
+        target[2] &amp;= 0x7F;
+        return target + 3;
+      }
+    } else {
+      target[1] &amp;= 0x7F;
+      return target + 2;
+    }
+  } else {
+    target[0] &amp;= 0x7F;
+    return target + 1;
+  }
+}
+</code></pre>
+
+<h3 id="zigzag">ZigZag</h3>
+
+<p>上节介绍了 Varints，我们知道 Varint 在处理小数值的数字很有效，而在处理值较大的数字则占用了多一个子节。对于负数来说，二进制最高有效位为 1，如果用 varint 来编码，无疑要占用比较多的子节。因此我们可以搭配 zigzag 来编码。</p>
+
+<p>ZigZag 编码将有符整型转化成无符的整型，其原理是将最高位的符号位放到最低位（－1 除外），这样大大减少了字节占用。</p>
+
+<p>举个例子，-2 的二进制表示为 1111 1110，用zigzag编码，－2 的绝对值为 2，二进制为 0000 0010，将符号位放到最低位，则变成 0000 0011。</p>
+
+<p>公式如下：
+- 32 位整型：(n &lt;&lt; 1) ^ (n &gt;&gt; 31)
+- 64 位整型：(n &lt;&lt; 1) ^ (n &gt;&gt; 63)</p>
+
+<blockquote>
+<p>Note that the second shift – the (n &gt;&gt; 31) part – is an arithmetic shift. So, in other words, the result of the shift is either a number that is all zero bits (if n is positive) or all one bits (if n is negative).</p>
+</blockquote>
+
+<p>注意这里的位移操作符。如果在位移运算符左边的变量是有符号数，编译产生的汇编指令是算术位移指令，如果该变量是无符号数，编译产生的汇编指令则是逻辑位移指令。对于左移，它们都一样，整个二进制右移，低位补 0；右移则有所区分，算数右移左边补最高符号位，逻辑位移左边补 0(如: -2, 对应的对应的二进制为1000 0010, 将最高位补在最右边就是0000 0011(3), 再比如，3的2进制为0000 0011, 最高位0补到最右边为0000 0110(6))。</p>
+
+<p>举个例子，-2 经过 ZigZag 编码后为 3，过程如下：
+<img src="../../img/201703/illustration-3.png" alt="ZigZag编码" /></p>
+
+<p>如下表:</p>
+
+<table>
+<thead>
+<tr>
+<th align="center">Signed Original</th>
+<th align="center">Encoded As</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td align="center">0</td>
+<td align="center">0</td>
+</tr>
+
+<tr>
+<td align="center">-1</td>
+<td align="center">1</td>
+</tr>
+
+<tr>
+<td align="center">1</td>
+<td align="center">2</td>
+</tr>
+
+<tr>
+<td align="center">-2</td>
+<td align="center">3</td>
+</tr>
+
+<tr>
+<td align="center">2</td>
+<td align="center">4</td>
+</tr>
+
+<tr>
+<td align="center">-3</td>
+<td align="center">5</td>
+</tr>
+
+<tr>
+<td align="center">2147483647</td>
+<td align="center">4294967294</td>
+</tr>
+
+<tr>
+<td align="center">-2147483647</td>
+<td align="center">4294967294</td>
+</tr>
+</tbody>
+</table>
+
+<p>对应的编码及解码方案(wire_format_lite.h)</p>
+
+<pre><code class="language-cpp">inline uint32 WireFormatLite::ZigZagEncode32(int32 n) {
+  // Note:  the right-shift must be arithmetic
+  return (n &lt;&lt; 1) ^ (n &gt;&gt; 31);
+}
+
+inline int32 WireFormatLite::ZigZagDecode32(uint32 n) {
+  return (n &gt;&gt; 1) ^ -static_cast&lt;int32&gt;(n &amp; 1);
+}
+
+inline uint64 WireFormatLite::ZigZagEncode64(int64 n) {
+  // Note:  the right-shift must be arithmetic
+  return (n &lt;&lt; 1) ^ (n &gt;&gt; 63);
+}
+
+inline int64 WireFormatLite::ZigZagDecode64(uint64 n) {
+  return (n &gt;&gt; 1) ^ -static_cast&lt;int64&gt;(n &amp; 1);
+}
+</code></pre>
+
+<h3 id="负数及大整数的解决方案">负数及大整数的解决方案</h3>
+
+<p>比如我们修改下之前的程序<code>test.set_a(-1)</code>，序列化之后的数据为：</p>
+
+<pre><code class="language-cpp">08ff ffff ffff ffff ffff 01
+</code></pre>
+
+<p>有11个字节之多！除了key=0x08占用的1个字节，value=-1占用了10个字节。
+对应的代码（<code>coded_stream.h</code>）。</p>
+
+<pre><code class="language-cpp">inline void CodedOutputStream::WriteVarint32SignExtended(int32 value) {
+  if (value &lt; 0) {
+    WriteVarint64(static_cast&lt;uint64&gt;(value));
+  } else {
+    WriteVarint32(static_cast&lt;uint32&gt;(value));
+  }
+}
+</code></pre>
+
+<p><code>int32</code>被转换成了<code>uint64</code>(为什么？)，再经过<code>varint</code>编码。这就是10个字节的原因了。</p>
+
+<p>修改proto:<code>optional sint32 a = 1</code>，这样在<code>test.set_a(-1)</code>并序列化后只有两个字节0801</p>
+
+<p>同理对于大整数，optional int32 a = 1;，test.set_a(1 &lt;&lt; 28)序列化后可以看到占用了6个字节0880 8080 8001，解决方案也是使用不同的类型定义optional fixed32 a = 1来解决，使用这种方案后int32固定的占用4个字节。</p>
+
+<h3 id="参考">参考</h3>
+
+<ol>
+<li><a href="https://developers.google.com/protocol-buffers/docs/encoding" target="_blank">Protobuf Encoding</a></li>
+</ol>
+
+    </div>
+
+    
+      
+
+    
+
+    
+      
+<div class="share-box" aria-hidden="true">
+  <ul class="share">
+    <li>
+      <a class="twitter"
+         href="https://twitter.com/intent/tweet?text=Google%20Protobuff%e7%bc%96%e7%a0%81&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2fcs%2fpb_internal%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-twitter"></i>
+      </a>
+    </li>
+    <li>
+      <a class="facebook"
+         href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fcheckking.github.io%2fpost%2fcs%2fpb_internal%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-facebook"></i>
+      </a>
+    </li>
+    <li>
+      <a class="linkedin"
+         href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2fcs%2fpb_internal%2f&amp;title=Google%20Protobuff%e7%bc%96%e7%a0%81"
+         target="_blank" rel="noopener">
+        <i class="fa fa-linkedin"></i>
+      </a>
+    </li>
+    <li>
+      <a class="email"
+         href="mailto:?subject=Google%20Protobuff%e7%bc%96%e7%a0%81&amp;body=https%3a%2f%2fcheckking.github.io%2fpost%2fcs%2fpb_internal%2f">
+        <i class="fa fa-envelope"></i>
+      </a>
+    </li>
+  </ul>
+</div>
+
+
+    
+
+    
+      
+
+    
+
+  </div>
+</article>
+			</section>
+		</div>
+	</article>
+</div> 
+
+<div class="page_footer">
+	<p>&copy; Check King 2018. Powered by <a href="http://gohugo.io/">Hugo</a> and <a href="https://github.com/jhu247/minimal-academic">Minimal Academic</a>.</p>
+</div>
+    
+    
+
+
+  </body>
+</html>

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="generator" content="Hugo 0.49" />
+  <meta name="author" content="Check King">
+
+  
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Merriweather:400,700%7cOpen&#43;Sans:400,400italic,700%7cRoboto&#43;Mono%25!%28EXTRA%20*hugolib.PageOutput=Page%28/post/cs/pb_reflection.md%29%29">
+  <link rel="stylesheet" href="/styles.css">
+  
+
+  
+
+  
+  <link rel="alternate" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  <link rel="feed" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/img/favicon/site.webmanifest">
+  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="icon" type="image/png" href="/img/icon.png">
+  <link rel="apple-touch-icon" type="image/png" href="/img/icon-192.png">
+
+  <link rel="canonical" href="https://checkking.github.io/post/cs/pb_reflection/">
+
+  <meta property="twitter:card" content="summary_large_image">
+  
+  <meta property="twitter:site" content="@">
+  <meta property="twitter:creator" content="@">
+  
+  <meta property="og:site_name" content="Check King&#39;s Blog">
+  <meta property="og:url" content="https://checkking.github.io/post/cs/pb_reflection/">
+  <meta property="og:title" content="protobuf反射机制的应用-pb转成map | Check King&#39;s Blog">
+  <meta property="og:locale" content="en-us">
+  
+  <meta property="article:published_time" content="2017-03-21T21:07:16&#43;08:00">
+  
+  <meta property="article:modified_time" content="2017-03-21T21:07:16&#43;08:00">
+  
+
+  <title>protobuf反射机制的应用-pb转成map | Check King&#39;s Blog</title>
+
+  
+
+</head>
+<body>
+
+<style type="text/css">
+
+.masthead-hero {
+  background-image: url("https://checkking.github.io/img/hero.jpg");
+}
+</style>
+
+<div class="masthead-hero"></div>
+
+
+<div id="main" role="main">
+  <div class="sidebar sticky" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <div class="author-avatar">
+    <a href="/">
+      <img src="/img/avatar.png" alt="Check King" itemprop="image">
+    </a>
+  </div>
+  <div class="author-content">
+    <h3 class="author-name" itemprop="name">Check King</h3>
+    <p class="author-bio" itemprop="description">A backend programmer.</p>
+  </div>
+  <div class="author-urls-wrapper">
+    <ul class="author-urls social-icons" aria-hidden="true">
+      <li itemprop="homeLocation" itemscope itemtype="http://schema.org/Place">
+        <span itemprop="name">Shenzhen China</span>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-instagram"></i>
+          Instagram
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-linkedin"></i>
+          LinkedIn
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-twitter"></i>
+          Twitter
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="//github.com/checkking" target="_blank" rel="noopener">
+          <i class="fa fa-github"></i>
+          Github
+        </a>
+      </li>
+      
+    </ul>  
+  </div>
+</div>
+
+  <article class="page">
+		<div class="page_container">
+			<section class="page_content">
+				<div class="navbar-hero">
+	<nav>
+		<a href="/">Home</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/projects">Projects</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/blog">Blog</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/about">About</a>
+	</nav>
+</div>
+				<article class="post" itemscope itemtype="http://schema.org/Article">
+  <div class="post-container">
+    <h1 itemprop="name"><a href="https://checkking.github.io/post/cs/pb_reflection/">protobuf反射机制的应用-pb转成map</a></h1>
+
+    
+      
+
+<div class="post-metadata">
+
+  <span class="post-date">
+    
+    <time datetime="2017-03-21 21:07:16 &#43;0800 CST" itemprop="datePublished dateModified">
+      Mar 21, 2017
+    </time>
+  </span>
+
+  
+
+</div>
+
+    
+
+    <div class="post-style" itemprop="articleBody">
+      
+      
+
+<h3 id="背景">背景</h3>
+
+<p>之前做的一个广告模块，要用用户请求构造特征值去请求机器学习模型模块。我这个模块与下游模块的接口之间的序列化协议是protobuf，与上游机器学习模块的序列化协议是公司内部的，而且要求将特征名，特征值都表示成字符串传给机器学习模块做在线预测。因此这当中就有一个转化需求：将protobuf转成map。</p>
+
+<h3 id="反射相关接口">反射相关接口</h3>
+
+<p>要介绍pb的反射功能，先看一个相关的UML示例图：</p>
+
+<p><img src="../../img/201703/pb-reflection.png" alt="pb反射" /></p>
+
+<p>各个类以及接口说明:</p>
+
+<h4 id="message">Message</h4>
+
+<p>Person是自定义的pb类型，继承自Message. MessageLite作为Message基类，更加轻量级一些。
+通过Message的两个接口<code>GetDescriptor/GetReflection</code>，可以获取该类型对应的Descriptor/Reflection。</p>
+
+<h4 id="descriptor">Descriptor</h4>
+
+<p>Descriptor是对message类型定义的描述，包括message的名字、所有字段的描述、原始的proto文件内容等。
+本文中我们主要关注跟字段描述相关的接口，例如：</p>
+
+<ol>
+<li>获取所有字段的个数：<code>int field_count() const</code></li>
+<li>获取单个字段描述类型<code>FieldDescriptor</code>的接口有很多个，例如</li>
+</ol>
+
+<pre><code class="language-cpp">const FieldDescriptor* field(int index) const;//根据定义顺序索引获取
+const FieldDescriptor* FindFieldByNumber(int number) const;//根据tag值获取
+const FieldDescriptor* FindFieldByName(const string&amp; name) const;//根据field name获取
+</code></pre>
+
+<h4 id="fielddescriptor">FieldDescriptor</h4>
+
+<p>FieldDescriptor描述message中的单个字段，例如字段名，字段属性(optional/required/repeated)等。
+对于proto定义里的每种类型，都有一种对应的C++类型，例如：</p>
+
+<pre><code class="language-cpp">enum CppType {
+    CPPTYPE_INT32 = 1, //TYPE_INT32, TYPE_SINT32, TYPE_SFIXED32
+}
+</code></pre>
+
+<p>获取类型的label属性：</p>
+
+<pre><code class="language-cpp">enum Label {
+    LABEL_OPTIONAL = 1, //optional
+    LABEL_REQUIRED = 2, //required
+    LABEL_REPEATED = 3, //repeated
+
+    MAX_LABEL = 3, //Constant useful for defining lookup tables indexed by Label.
+}
+</code></pre>
+
+<p>获取字段的名称:<code>const string&amp; name() const;</code>。</p>
+
+<h4 id="reflection">Reflection</h4>
+
+<p>Reflection主要提供了动态读写pb字段的接口，对pb对象的自动读写主要通过该类完成。
+对每种类型，Reflection都提供了一个单独的接口用于读写字段对应的值。
+例如对于读操作：</p>
+
+<pre><code class="language-cpp">virtual int32  GetInt32 (const Message&amp; message,
+                           const FieldDescriptor* field) const = 0;
+virtual int64  GetInt64 (const Message&amp; message,
+                           const FieldDescriptor* field) const = 0;
+</code></pre>
+
+<p>特殊的，对于枚举和嵌套的message：</p>
+
+<pre><code class="language-cpp">virtual const EnumValueDescriptor* GetEnum(
+      const Message&amp; message, const FieldDescriptor* field) const = 0;
+// See MutableMessage() for the meaning of the &quot;factory&quot; parameter.
+virtual const Message&amp; GetMessage(const Message&amp; message,
+                                    const FieldDescriptor* field,
+                                    MessageFactory* factory = NULL) const = 0;
+</code></pre>
+
+<p>对于写操作也是类似的接口，例如<code>SetInt32/SetInt64/SetEnum</code>等。</p>
+
+<h3 id="实现pb转map">实现pb转map</h3>
+
+<pre><code class="language-cpp">int pb2map(const google::protobuf::Message&amp; message,
+        std::map&lt;std::string, std::string&gt;* map) {
+#define CASE_FIELD_TYPE(cpptype, method, valuetype) \
+    case google::protobuf::FieldDescriptor::CPPTYPE_##cpptype:{ \
+        valuetype value = reflection-&gt;Get##method(message, field); \
+        std::ostringstream oss; \
+        oss &lt;&lt; value; \
+        (*map)[field-&gt;name()] = oss.str(); \
+        break; \
+    }
+
+#define CASE_FIELD_TYPE_ENUM() \
+    case google::protobuf::FieldDescriptor::CPPTYPE_ENUM: {\
+        int value = reflection-&gt;GetEnum(message, field)-&gt;number(); \
+        std::ostringstream oss; \
+        oss &lt;&lt; value; \
+        (*map)[field-&gt;name()] = oss.str(); \
+        break; \
+    }
+
+#define CASE_FIELD_TYPE_STRING() \
+    case google::protobuf::FieldDescriptor::CPPTYPE_STRING: { \
+        std::string value = reflection-&gt;GetString(message, field); \
+        (*map)[field-&gt;name()] = value; \
+        break; \
+    }
+    const google::protobuf::Descriptor* descriptor = message.GetDescriptor();
+    const google::protobuf::Reflection* reflection = message.GetReflection();
+
+    for (int i = 0; i &lt; descriptor-&gt;field_count(); ++i) {
+        const google::protobuf::FieldDescriptor* field = descriptor-&gt;field(i);
+        bool has_field = reflection-&gt;HasField(message, field);
+        if (has_field) {
+            if (field-&gt;is_repeated()) {
+                LOG(WARNING) &lt;&lt; &quot;repeated field not supported!&quot;;
+                return CS_ERR;
+            }
+            switch (field-&gt;cpp_type()) {
+                CASE_FIELD_TYPE(INT32, Int32, int);
+                CASE_FIELD_TYPE(UINT32, UInt32, uint32_t);
+                CASE_FIELD_TYPE(FLOAT, Float, float);
+                CASE_FIELD_TYPE(DOUBLE, Double, double);
+                CASE_FIELD_TYPE(BOOL, Bool, bool);
+                CASE_FIELD_TYPE(INT64, Int64, int64_t);
+                CASE_FIELD_TYPE(UINT64, UInt64, uint64_t);
+                CASE_FIELD_TYPE_ENUM();
+                CASE_FIELD_TYPE_STRING();
+                default:
+                    LOG(WARNING) &lt;&lt; &quot;Unsupported pb message type: [&quot; &lt;&lt; field-&gt;cpp_type() &lt;&lt; &quot;]!&quot;;
+                    return CS_ERR;
+            }
+        } else {
+            (*map)[field-&gt;name()] = std::string(&quot;-&quot;);
+        }
+    }
+
+    return CS_OK;
+
+</code></pre>
+
+<h3 id="参考">参考</h3>
+
+<p><a href="https://developers.google.com/protocol-buffers/docs/reference/cpp/#google.protobuf" target="_blank">protobuf C++ api</a></p>
+
+    </div>
+
+    
+      
+
+    
+
+    
+      
+<div class="share-box" aria-hidden="true">
+  <ul class="share">
+    <li>
+      <a class="twitter"
+         href="https://twitter.com/intent/tweet?text=protobuf%e5%8f%8d%e5%b0%84%e6%9c%ba%e5%88%b6%e7%9a%84%e5%ba%94%e7%94%a8-pb%e8%bd%ac%e6%88%90map&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2fcs%2fpb_reflection%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-twitter"></i>
+      </a>
+    </li>
+    <li>
+      <a class="facebook"
+         href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fcheckking.github.io%2fpost%2fcs%2fpb_reflection%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-facebook"></i>
+      </a>
+    </li>
+    <li>
+      <a class="linkedin"
+         href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2fcs%2fpb_reflection%2f&amp;title=protobuf%e5%8f%8d%e5%b0%84%e6%9c%ba%e5%88%b6%e7%9a%84%e5%ba%94%e7%94%a8-pb%e8%bd%ac%e6%88%90map"
+         target="_blank" rel="noopener">
+        <i class="fa fa-linkedin"></i>
+      </a>
+    </li>
+    <li>
+      <a class="email"
+         href="mailto:?subject=protobuf%e5%8f%8d%e5%b0%84%e6%9c%ba%e5%88%b6%e7%9a%84%e5%ba%94%e7%94%a8-pb%e8%bd%ac%e6%88%90map&amp;body=https%3a%2f%2fcheckking.github.io%2fpost%2fcs%2fpb_reflection%2f">
+        <i class="fa fa-envelope"></i>
+      </a>
+    </li>
+  </ul>
+</div>
+
+
+    
+
+    
+      
+
+    
+
+  </div>
+</article>
+			</section>
+		</div>
+	</article>
+</div> 
+
+<div class="page_footer">
+	<p>&copy; Check King 2018. Powered by <a href="http://gohugo.io/">Hugo</a> and <a href="https://github.com/jhu247/minimal-academic">Minimal Academic</a>.</p>
+</div>
+    
+    
+
+
+  </body>
+</html>
