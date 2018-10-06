@@ -36,6 +36,1304 @@
     </item>
     
     <item>
+      <title>谈谈enable_shared_from_this</title>
+      <link>https://checkking.github.io/post/lang/cpp2/</link>
+      <pubDate>Tue, 28 Feb 2017 21:07:16 +0800</pubDate>
+      <author>Emir Ribic</author>
+      <guid>https://checkking.github.io/post/lang/cpp2/</guid>
+      <description></description>
+      
+      <content>
+
+&lt;p&gt;以前都没有用过enable_shared_from_this模板类，虽然经常遇到但是也没怎么去关注，今天抽时间好好学习了下enable_shared_from_this模板类，发现在使用shared_ptr模板类和enable_shared_from_this模板类时有许多陷阱的，故记录于此。&lt;/p&gt;
+
+&lt;h4 id=&#34;什么时候该使用enable-shared-from-this模板类&#34;&gt;什么时候该使用enable_shared_from_this模板类&lt;/h4&gt;
+
+&lt;p&gt;在看下面的例子之前，简单说下使用背景，单有一个类，某个函数需要返回当前对象的指针，我们返回的是shared_ptr，为什么使用智能指针呢，这是因为：当我们使用智能指针管理资源时，必须统一使用智能指针，而不能再某些地方使用智能指针，某些地方使用原始指针，否则不能保持智能指针的语义，从而产生各种错误。好了，介绍完背景，看下面的一段小程序：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;#include &amp;lt;iostream&amp;gt;
+#include &amp;lt;boost/shared_ptr.hpp&amp;gt;
+class Test
+{
+    public:
+        //析构函数
+        ~Test() { std::cout &amp;lt;&amp;lt; &amp;quot;Test Destructor.&amp;quot; &amp;lt;&amp;lt; std::endl; }
+        //获取指向当前对象的指针
+        boost::shared_ptr&amp;lt;Test&amp;gt; GetObject()
+        {
+            boost::shared_ptr&amp;lt;Test&amp;gt; pTest(this);
+            return pTest;
+        }
+};
+int main(int argc, char *argv[])
+{
+    {
+        boost::shared_ptr&amp;lt;Test&amp;gt; p( new Test( ));
+        boost::shared_ptr&amp;lt;Test&amp;gt; q = p-&amp;gt;GetObject();
+    }
+    return 0;
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;程序输出：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;Test Destructor.
+Test Destructor.
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;从上面的输出你发现了什么，很明显的发现只创建new了一个Test对象，但是却调用了两次析构函数，这对程序来说肯定是一个灾难。为什么会出现这种情况呢？main函数中的&lt;code&gt;boost::shared_ptr&amp;lt;Test&amp;gt; p( new Test( ));&lt;/code&gt; 将shared_ptr中引用计数器的值设置为1，而在GetObject函数中又通过&lt;code&gt;boost::shared_ptr&amp;lt;Test&amp;gt; pTest(this)&lt;/code&gt;又将shared_ptr中的引用计数器的值增加了1，故在析构时一个Test对象被析构了两次。即产生这个错误的原因是通过同一个Test指针对象创建了多个shared_ptr，这是绝对禁止的。同时这也提醒我们在使用shared_ptr时一定不能通过同一个指针对象创建一个以上的shared_ptr对象。那么有什么方法从一个类的成员函数中获取当前对象的shared_ptr呢，其实方法很简单：只需要该类继承至enable_shared_from_this模板类,然后在需要shared_prt的地方调用enable_shared_from_this模板类的成员函数shared_from_this()即可，下面是改进后的代码：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;#include &amp;lt;iostream&amp;gt;
+#include &amp;lt;boost/enable_shared_from_this.hpp&amp;gt;
+#include &amp;lt;boost/shared_ptr.hpp&amp;gt;
+class Test : public boost::enable_shared_from_this&amp;lt;Test&amp;gt;
+{
+    public:
+        //析构函数
+        ~Test() { std::cout &amp;lt;&amp;lt; &amp;quot;Test Destructor.&amp;quot; &amp;lt;&amp;lt; std::endl; }
+        //获取指向当前对象的指针
+        boost::shared_ptr&amp;lt;Test&amp;gt; GetObject()
+        {
+            return shared_from_this();      //改进2
+        }
+};
+int main(int argc, char *argv[])
+{
+    {
+        boost::shared_ptr&amp;lt;Test&amp;gt; p( new Test( ));
+        boost::shared_ptr&amp;lt;Test&amp;gt; q = p-&amp;gt;GetObject();
+    }
+    return 0;
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;程序输出：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;Test Destructor.
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;从输出对象只被析构了一次，这是我们想要的结果，因此enable_shared_from_this模板类的作用是：用来作为一个基类，它允许从一个成员函数中获得一个当前对象的shared_ptr。那么enable_shared_from_this模板类到底是如何工作的了？请看下文分解~&lt;/p&gt;
+
+&lt;h4 id=&#34;enable-shared-from-this模板类实现&#34;&gt;enable_shared_from_this模板类实现&lt;/h4&gt;
+
+&lt;p&gt;打开enable_shared_from_this.hpp文件，会发现enable_shared_from_this模板类的实现如下：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;template&amp;lt;class T&amp;gt; class enable_shared_from_this
+{
+    protected:
+        enable_shared_from_this() BOOST_NOEXCEPT
+        {
+        }
+        enable_shared_from_this(enable_shared_from_this const &amp;amp;) BOOST_NOEXCEPT
+        {
+        }
+        enable_shared_from_this &amp;amp; operator=(enable_shared_from_this const &amp;amp;) BOOST_NOEXCEPT
+        {
+            return *this;
+        }
+        ~enable_shared_from_this() BOOST_NOEXCEPT // ~weak_ptr&amp;lt;T&amp;gt; newer throws, so this call also must not throw
+        {
+        }
+    public:
+        shared_ptr&amp;lt;T&amp;gt; shared_from_this()
+        {
+            shared_ptr&amp;lt;T&amp;gt; p( weak_this_ );
+            BOOST_ASSERT( p.get() == this );
+            return p;
+        }
+        shared_ptr&amp;lt;T const&amp;gt; shared_from_this() const
+        {
+            shared_ptr&amp;lt;T const&amp;gt; p( weak_this_ );
+            BOOST_ASSERT( p.get() == this );
+            return p;
+        }
+    public: // actually private, but avoids compiler template friendship issues
+        // Note: invoked automatically by shared_ptr; do not call
+        template&amp;lt;class X, class Y&amp;gt; void _internal_accept_owner( shared_ptr&amp;lt;X&amp;gt; const * ppx, Y * py ) const
+        {
+            if( weak_this_.expired() )
+            {
+                weak_this_ = shared_ptr&amp;lt;T&amp;gt;( *ppx, py );
+            }
+        }
+    private:
+        mutable weak_ptr&amp;lt;T&amp;gt; weak_this_;
+};
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;从enable_shared_from_this模板类的实现文件中我们可以很容易的发现我们只能使用返回shared_ptr的shared_from_this()和返回shared_ptr的shared_from_this()，因为这两个版本的shared_from_this()是public权限的，还有一个public权限的是internal_accept_owner函数，但是注释中已经明显指出不能调用这个函数，这个函数会被shared_ptr自动调用，internal_accept_owner函数用来初始化enable_shared_from_this模板类中的唯一成员变量weak_ptr weak_this。而shared_from_this()中是通过将weak_ptr
+weak_this转化成shared_ptr和shared_ptr来返回的，因此在使用shared_from_this()之前需要先初始化weak_ptr weak_this对象，而weak_ptr weak_this对象是在_internal_accept_owner函数中进行的初始化，也就是说先需要创建shared_ptr对象。即在使用shared_from_this()函数之前，应该先初始化对象的基类enable_shared_from_this,接着再初始化对象，最后初始化shared_ptr。正因为有这个特点所以会出现以下常见的错误：&lt;/p&gt;
+
+&lt;h4 id=&#34;使用enable-shared-from-this常见错误&#34;&gt;使用enable_shared_from_this常见错误&lt;/h4&gt;
+
+&lt;p&gt;先来看情形1：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;class Test : public boost::enable_shared_from_this&amp;lt;Test&amp;gt;
+{
+        Test() { boost::shared_ptr&amp;lt;Test&amp;gt; pTest = shared_from_this(); }
+};
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;这种用法明显是错的，虽然对象的基类enable_shared_from_this类的构造函数已经被调用，但是shared_ptr的构造函数并没有被调用，因此weak_ptr weak_this_并没有被初始化，所以这时调用shared_from_this()是错误的。&lt;/p&gt;
+
+&lt;p&gt;接着我们来看情形2：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;class Test : public boost::enable_shared_from_this&amp;lt;Test&amp;gt;
+{
+    void func() { boost::shared_ptr&amp;lt;Test&amp;gt; pTest = shared_from_this(); }
+};
+int main()
+{
+    Test test;
+    test.func();    //错误
+    Test pTest = new Test;
+    pTest-&amp;gt;func(); //错误
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;同样这种做法也是错误的，和情形1同样的原因shared_ptr的构造函数并没有被调用，因此weak_ptr weak_this_并没有被初始化。&lt;/p&gt;
+
+&lt;p&gt;正确的做法应该是：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;class Test : public boost::enable_shared_from_this&amp;lt;Test&amp;gt;
+{
+    void func() { boost::shared_ptr&amp;lt;Test&amp;gt; pTest = shared_from_this(); }
+};
+int main()
+{
+    shared_ptr&amp;lt;Test&amp;gt; pTest( new Test() );
+    pTest-&amp;gt;func();
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;&lt;code&gt;shared_ptr&amp;lt;Test&amp;gt; pTest(new Test());&lt;/code&gt;这句话依次执行的顺序是：1 调用enable_shared_from_this的构造函数。2 调用Test的构造函数。 3 调用shared_ptr的构造函数初始化weak_ptr weak_this_。最后才能通过func()函数使用shared_from_this函数。&lt;/p&gt;
+
+&lt;p&gt;从上面的错误中我们知道在使用enable_shared_from_this类中的shared_from_this()函数时应该注意：
+1. 不能在对象的构造函数中使用shared_from_this()函数。
+2. 先需要调用enable_shared_from_this类的构造函数，接着调用对象的构造函数，最后需要调用shared_ptr类的构造函数初始化enable_shared_from_this的成员变量weak_this_。然后才能使用shared_from_this()函数。
+3. 如何程序中使用了智能指针shared_ptr,则程序中统一使用智能指针，不能使用原始指针，以免出现错误。&lt;/p&gt;
+
+&lt;h4 id=&#34;参考&#34;&gt;参考&lt;/h4&gt;
+
+&lt;ol&gt;
+&lt;li&gt;&lt;a href=&#34;http://www.boost.org/doc/libs/1_60_0/libs/smart_ptr/enable_shared_from_this.html&#34; target=&#34;_blank&#34;&gt;enable_shared_from_this&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://www.reddit.com/r/cpp/comments/1jjlk4/safely_using_enable_shared_from_this/&#34; target=&#34;_blank&#34;&gt;Safely using enable_shared_from_this&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+</content>
+      
+    </item>
+    
+    <item>
+      <title>nginx源码阅读点滴</title>
+      <link>https://checkking.github.io/post/nginx/nginx4/</link>
+      <pubDate>Fri, 24 Feb 2017 21:07:16 +0800</pubDate>
+      <author>Emir Ribic</author>
+      <guid>https://checkking.github.io/post/nginx/nginx4/</guid>
+      <description></description>
+      
+      <content>
+
+&lt;h4 id=&#34;ngx-add-inherited-sockets&#34;&gt;ngx_add_inherited_sockets&lt;/h4&gt;
+
+&lt;p&gt;这个函数的目的是为了实现nginx平滑升级时获取原来的监听fd, 通过环境变量NGINX完成socket的继承，继承来的socket将会放到init_cycle的listening数组中。在NGINX环境变量中，每个socket中间用冒号或分号隔开。完成继承同时设置全局变量ngx_inherited为1。
+相关代码：&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;src/core/nginx.c&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;static ngx_int_t
+ngx_add_inherited_sockets(ngx_cycle_t *cycle)
+{
+u_char           *p, *v, *inherited;
+ngx_int_t         s;
+ngx_listening_t  *ls;
+
+inherited = (u_char *) getenv(NGINX_VAR);
+
+if (inherited == NULL) {
+    return NGX_OK;
+}
+
+ngx_log_error(NGX_LOG_NOTICE, cycle-&amp;gt;log, 0,
+              &amp;quot;using inherited sockets from \&amp;quot;%s\&amp;quot;&amp;quot;, inherited);
+
+if (ngx_array_init(&amp;amp;cycle-&amp;gt;listening, cycle-&amp;gt;pool, 10,
+                   sizeof(ngx_listening_t))
+    != NGX_OK)
+{
+    return NGX_ERROR;
+}
+
+for (p = inherited, v = p; *p; p++) {
+    if (*p == &#39;:&#39; || *p == &#39;;&#39;) {
+        s = ngx_atoi(v, p - v);
+        if (s == NGX_ERROR) {
+            ngx_log_error(NGX_LOG_EMERG, cycle-&amp;gt;log, 0,
+                          &amp;quot;invalid socket number \&amp;quot;%s\&amp;quot; in &amp;quot; NGINX_VAR
+                          &amp;quot; environment variable, ignoring the rest&amp;quot;
+                          &amp;quot; of the variable&amp;quot;, v);
+            break;
+        }
+
+        v = p + 1;
+
+        ls = ngx_array_push(&amp;amp;cycle-&amp;gt;listening);
+        if (ls == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_memzero(ls, sizeof(ngx_listening_t));
+
+        ls-&amp;gt;fd = (ngx_socket_t) s;
+    }
+}
+
+ngx_inherited = 1;
+
+return ngx_set_inherited_sockets(cycle);
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;src/core/nginx.c:ngx_exec_new_binary&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;p = ngx_cpymem(var, NGINX_VAR &amp;quot;=&amp;quot;, sizeof(NGINX_VAR));
+ls = cycle-&amp;gt;listening.elts;
+for (i = 0; i &amp;lt; cycle-&amp;gt;listening.nelts; i++) {
+p = ngx_sprintf(p, &amp;quot;%ud;&amp;quot;, ls[i].fd);
+}
+*p = &#39;\0&#39;;
+env[n++] = var;
+&lt;/code&gt;&lt;/pre&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+      
+    </item>
+    
+    <item>
+      <title>nginx日志切分方案</title>
+      <link>https://checkking.github.io/post/nginx/nginx2/</link>
+      <pubDate>Sat, 18 Feb 2017 21:07:16 +0800</pubDate>
+      <author>Emir Ribic</author>
+      <guid>https://checkking.github.io/post/nginx/nginx2/</guid>
+      <description></description>
+      
+      <content>
+
+&lt;p&gt;nginx的日志切分问题一直是运维nginx时需要重点关注的。本文将简单说明下nginx支持的两种日志切分方式。&lt;/p&gt;
+
+&lt;h4 id=&#34;定时任务切分&#34;&gt;定时任务切分&lt;/h4&gt;
+
+&lt;p&gt;所谓的定时任务切分，是指通过定时任务（比如crontab)，发送信号给nginx，让其重新打开文件。该方法也是nginx官网上面比较推荐的,原文说明比较清楚，这里在说明下：&lt;br/&gt;
+发送USR1 信号会让nginx主动重新打开日志文件，故操作如下：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;$ mv access.log access.log.0
+$ kill -USR1 `cat master.nginx.pid`
+$ sleep 1
+$ gzip access.log.0    # do something with access.log.0
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;总结 ：优点是思路较为简单，但效果明显，而且对error_log 同样适用；缺点是有外部依赖（比如 crontab)&lt;/p&gt;
+
+&lt;h4 id=&#34;自切分&#34;&gt;自切分&lt;/h4&gt;
+
+&lt;p&gt;自切分是指让nginx自身实现日志切分功能，不依赖crontab等东西。 其主要原理是依赖access_log的强大功能&amp;mdash;- 可以用变量定义请求的log路径。&lt;br/&gt;
+nginx的acess_log 功能非常强大，其完整指令说明如下，这里主要说明定义日志路径的功能；关于syslog还有gzip, buffer等特性，后续再说明。&lt;/p&gt;
+
+&lt;p&gt;access_log指令Syntax:&lt;br/&gt;
+access_log path [format [buffer=size [flush=time]] [if=condition]];
+access_log path format gzip[=level] [buffer=size] [flush=time] [if=condition];
+access_log syslog:server=address[,parameter=value] [format [if=condition]];
+access_log off;&lt;/p&gt;
+
+&lt;p&gt;默认：access_log logs/access.log combined;&lt;br/&gt;
+Context:    http, server, location, if in location, limit_except&lt;/p&gt;
+
+&lt;p&gt;注意path部分是支持nignx变量的，这也就意味这我们只要通过配置正确的nginx变量，就可以实现小时等级别的日志自动拆分了。&lt;/p&gt;
+
+&lt;p&gt;一个简单的问题就出现了，假设nginx要实现这个机制，那岂不是每打印一个请求log就得打开文件，写日志，关闭文件？ 这样显然效率太差了，为了解决这个问题，nginx又引入了一个机制，叫做 open_file_cache，简单的说，这个东西的功能就是会缓存打开的文件，只有满足一定条件的时候才会重新去check当前fd对应的文件是否合法，是否需要重新打开。 open file cache的指令如下：&lt;/p&gt;
+
+&lt;p&gt;Syntax:     open_log_file_cache max=N [inactive=time] [min_uses=N] [valid=time];
+open_log_file_cache off;
+Default:     open_log_file_cache off;
+Context:     http, server, location&lt;/p&gt;
+
+&lt;p&gt;open_log_file_cache 里面几个参数的含义为：&lt;/p&gt;
+
+&lt;p&gt;max : 设置缓存中描述符的最大数量；如果缓存被占满，最近最少使用（LRU）的描述符将被关闭。&lt;/p&gt;
+
+&lt;p&gt;inactive : 设置缓存文件描述符在多长时间内没有被访问就关闭； 默认为10秒。&lt;/p&gt;
+
+&lt;p&gt;min_uses : 设置在inactive参数指定的时间里， 最少访问多少次才能使文件描述符保留在缓存中；默认为1。&lt;/p&gt;
+
+&lt;p&gt;valid :设置一段用于检查超时后文件是否仍以同样名字存在的时间； 默认为60秒。&lt;/p&gt;
+
+&lt;p&gt;off :禁用缓存。
+综上，要让nginx自切分，需要两个步骤，其一，配置合理的access_log;其二，开启open_log_file_cache提升性能； 下面是用实现小时级别日志切分的配置demo&lt;/p&gt;
+
+&lt;p&gt;提取nginx变量&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;if ($time_iso8601 ~ &amp;quot;^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})&amp;quot;)
+{
+    set $year $1;
+    set $month $2;
+    set $day $3;
+    set $hour $4;
+    set $minutes $5;
+    set $seconds $6;
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;配置access_log ；以  hour 为界&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt; access_log  logs/access.log.$year$month$day$hour;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;配置open_log_file_cache
+open_log_file_cache max=10 inactive=60s valid=1m min_uses=2;&lt;/p&gt;
+
+&lt;p&gt;总结 :
+自切分可一定程度上面满足日志切分的需求；但是对性能会有一定的影响； 另外，并不支持error_log的切分，个人更推荐产品线采用方式一的方法切。&lt;/p&gt;
+</content>
+      
+    </item>
+    
+    <item>
+      <title>Nginx学习笔记(一)</title>
+      <link>https://checkking.github.io/post/nginx/nginx1/</link>
+      <pubDate>Mon, 13 Feb 2017 21:07:16 +0800</pubDate>
+      <author>Emir Ribic</author>
+      <guid>https://checkking.github.io/post/nginx/nginx1/</guid>
+      <description></description>
+      
+      <content>
+
+&lt;h3 id=&#34;运行中的nginx进程间的关系&#34;&gt;运行中的Nginx进程间的关系&lt;/h3&gt;
+
+&lt;p&gt;在正式提供服务的产品环境下，部署nginx都是使用一个master进程来管理多个worker进程，
+一般情况下，worker进程的数量与服务器上的CPU核心数相等。
+每个worker进程都是繁忙的，他们真正提供互联网服务，master进程则很清闲，只负责监控管理
+worker进程。
+Nginx是支持单进程(master进程)提供服务的，那么为什么产品环境下要按照master-worker方式配置同时
+启动多个进程呢？这样做的好处主要有以下两点：
+- 由于master进程不会对用户请求提供服务，只用于管理真正提供服务的worker进程，所以master进程可以是唯一的，它仅专注于自己的纯管理工作，为管理员提供命令行服务，包括诸如启动服务、停止服务、重载配置文件、平滑升级程序等。master进程需要拥有较大的权限，例如，通常会利用root用户启动master进程。worker进程的权限要小于或等于master进程，这样master进程才可以完全地管理worker进程。当任意一个worker进程出现错误从而导致coredump时，master进程会立刻启动新的worker进程继续服务。
+- 多个worker进程处理互联网请求不但可以提高服务的健壮性（一个worker进程出错后，其他worker进程仍然可以正常提供服务），最重要的是，这样可以充分利用现在常见的SMP多核架构，从而实现微观上真正的多核并发处理。因此，用一个进程（master进程）来处理互联网请求肯定是不合适的。另外，为什么要把worker进程数量设置得与CPU核心数量一致呢？这正是Nginx与Apache服务器的不同之处。在Apache上每个进程在一个时刻只处理一个请求，因此，如果希望Web服务器拥有并发处理的请求数更多，就要把Apache的进程或线程数设置得更多，通常会达到一台服务器拥有几百个工作进程，这样大量的进程间切换将带来无谓的系统资源消耗。而Nginx则不然，一个worker进程可以同时处理的请求数只受限于内存大小，而且在架构设计上，不同的worker进程之间处理并发请求时几乎没有同步锁的限制，worker进程通常不会进入睡眠状态，因此，当Nginx上的进程数与CPU核心数相等时（最好每一个worker进程都绑定特定的CPU核心），进程间切换的代价是最小的。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;../../img/201702/nginx_process.png&#34; alt=&#34;Nginx 进程间的关系&#34; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&#34;nginx配置相关&#34;&gt;nginx配置相关&lt;/h3&gt;
+
+&lt;h4 id=&#34;location模块中root和alias的区别&#34;&gt;location模块中root和alias的区别&lt;/h4&gt;
+
+&lt;p&gt;root方式的配置:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;location /download/ {
+    root /opt/web/html/;
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;如果请求的URI是/download/index/test.html，那么web服务器将会返回服务器上/otp/web/html/download/index/test.html文件的内容。&lt;/p&gt;
+
+&lt;p&gt;alias方式的配置:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;location /conf {
+    alias /usr/local/nginx/conf;
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;在URI向实际文件路径的映射过程中，已经把location后配置的/conf这部分字符串丢弃，因此，/conf/nginx.conf请求将根据alias path映射为
+&lt;strong&gt;/usr/local/nginx/conf&lt;/strong&gt;/nginx.conf (conf -&amp;gt; /usr/local/nginx/conf)&lt;br/&gt;
+root可以放置到http, server, location或if块中，而alias只能放置在location块中。&lt;br/&gt;
+alias后面还可以添加正则表达式，例如：&lt;br/&gt;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;location .~ ^/test/(\w+)\.(\w+)$ {
+    alias /usr/local/nginx/$2/$1.$2;
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;这样，请求在访问/test/nginx.conf时，nginx会返回/usr/local/nginx/conf/nginx.conf文件中的内容。&lt;/p&gt;
+
+&lt;h4 id=&#34;try-files&#34;&gt;try_files&lt;/h4&gt;
+
+&lt;p&gt;语法： try_files path1 [path2] uri;
+配置块： server、location
+try_files后要跟若干路径，如path1 path2&amp;hellip;，而且最后必须要有uri参数，意义如下：尝试按照顺序访问每一个path,如果可以有效地读取，就直接返回这个path对应的文件结束请求，否则继续向下访问。如果所有path都找不到有效的文件，就重定向到最后的参数uri上。如：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;try_files /system/maintenance.html $uri $uri/index.html $uri.html @other;
+location @other {
+    proxy_pass http://backend;
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&#34;文件操作的优化&#34;&gt;文件操作的优化&lt;/h4&gt;
+
+&lt;ul&gt;
+&lt;li&gt;sendfile 系统调用
+语法: sendfile on|off; &lt;br.&gt;
+默认：sendfile off; &lt;br/&gt;
+配置快： http、server、location &lt;br/&gt;
+可以启用Linux上的sendfile系统调用来发送文件，它减少了内核态与用户态之间的两次内存复制，这样就会从
+磁盘中读取文件后直接在内核态发送到网卡设备，提高了发送文件的效率。&lt;/li&gt;
+&lt;li&gt;AIO系统调用
+此配置项表示是否在FreeBSD或Linux上启用内核级别的异步文件I/O功能。注意，它与sendfile功能是互斥的。&lt;/li&gt;
+&lt;li&gt;directio
+语法：directio size|off;&lt;br/&gt;
+默认：directio off;&lt;br/&gt;
+配置快： http、server、location &lt;br/&gt;
+此配置项在FreeBSD和Linux系统上使用O_DIRECT选项去读取文件，缓冲区大小为size, 通常对大文件的读取速度有优化作用.注意，它与sendfile功能是互斥的。&lt;/li&gt;
+&lt;li&gt;directio_alianment&lt;/li&gt;
+&lt;li&gt;打开文件缓冲
+语法：open_file_cache max = N [inactive=time] | off;&lt;br/&gt;
+默认：open_file_cache off; &lt;br/&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h4 id=&#34;nginx反向代理配置&#34;&gt;nginx反向代理配置&lt;/h4&gt;
+
+&lt;p&gt;参考文章：&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&#34;https://www.chenyudong.com/archives/nginx-reverse-proxy.html&#34; target=&#34;_blank&#34;&gt;https://www.chenyudong.com/archives/nginx-reverse-proxy.html&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&#34;http://natumsol.github.io/2016/03/16/nginx-basic/&#34; target=&#34;_blank&#34;&gt;http://natumsol.github.io/2016/03/16/nginx-basic/&lt;/a&gt;&lt;/p&gt;
+</content>
+      
+    </item>
+    
+    <item>
+      <title>nginx location &amp; rewrite 配置总结</title>
+      <link>https://checkking.github.io/post/nginx/nginx3/</link>
+      <pubDate>Thu, 09 Feb 2017 21:07:16 +0800</pubDate>
+      <author>Emir Ribic</author>
+      <guid>https://checkking.github.io/post/nginx/nginx3/</guid>
+      <description></description>
+      
+      <content>
+
+&lt;h3 id=&#34;location正则写法&#34;&gt;location正则写法&lt;/h3&gt;
+
+&lt;p&gt;一个示例：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;location  = / {
+      # 精确匹配 / ，主机名后面不能带任何字符串
+        [ configuration A ]
+}
+location  / {
+      # 因为所有的地址都以 / 开头，所以这条规则将匹配到所有请求
+        # 但是正则和最长字符串会优先匹配
+          [ configuration B ]
+}
+location /documents/ {
+      # 匹配任何以 /documents/ 开头的地址，匹配符合以后，还要继续往下搜索
+        # 只有后面的正则表达式没有匹配到时，这一条才会采用这一条
+          [ configuration C ]
+}
+location ~ /documents/Abc {
+      # 匹配任何以 /documents/Abc 开头的地址，匹配符合以后，还要继续往下搜索
+        # 只有后面的正则表达式没有匹配到时，这一条才会采用这一条
+          [ configuration CC ]
+}
+location ^~ /images/ {
+      # 匹配任何以 /images/ 开头的地址，匹配符合以后，停止往下搜索正则，采用这一条。
+        [ configuration D ]
+}
+location ~* \.(gif|jpg|jpeg)$ {
+      # 匹配所有以 gif,jpg或jpeg 结尾的请求
+        # 然而，所有请求 /images/ 下的图片会被 config D 处理，因为 ^~ 到达不了这一条正则
+          [ configuration E ]
+}
+location /images/ {
+      # 字符匹配到 /images/，继续往下，会发现 ^~ 存在
+        [ configuration F ]
+}
+location /images/abc {
+      # 最长字符匹配到 /images/abc，继续往下，会发现 ^~ 存在
+        # F与G的放置顺序是没有关系的
+          [ configuration G ]
+}
+location ~ /images/abc/ {
+      # 只有去掉 config D 才有效：先最长匹配 config G 开头的地址，继续往下搜索，匹配到这一条正则，采用
+          [ configuration H ]
+}
+location ~* /js/.*/\.js
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;ul&gt;
+&lt;li&gt;以=开头表示精确匹配
+如 A 中只匹配根目录结尾的请求，后面不能带任何字符串。&lt;/li&gt;
+&lt;li&gt;^~ 开头表示uri以某个常规字符串开头，不是正则匹配&lt;/li&gt;
+&lt;li&gt;~ 开头表示区分大小写的正则匹配;&lt;/li&gt;
+&lt;li&gt;~* 开头表示不区分大小写的正则匹配&lt;/li&gt;
+&lt;li&gt;/ 通用匹配, 如果没有其它匹配,任何请求都会匹配到&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;顺序 no优先级：&lt;/p&gt;
+
+&lt;p&gt;(location =) &amp;gt; (location 完整路径) &amp;gt; (location ^~ 路径) &amp;gt; (location ~,~* 正则顺序) &amp;gt; (location 部分起始路径) &amp;gt; (/)&lt;/p&gt;
+
+&lt;p&gt;上面的匹配结果&lt;/p&gt;
+
+&lt;p&gt;按照上面的location写法，以下的匹配示例成立：&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;/ -&amp;gt; config A
+精确完全匹配，即使/index.html也匹配不了&lt;/li&gt;
+&lt;li&gt;/downloads/download.html -&amp;gt; config B
+匹配B以后，往下没有任何匹配，采用B&lt;/li&gt;
+&lt;li&gt;/images/1.gif -&amp;gt; configuration D
+匹配到F，往下匹配到D，停止往下&lt;/li&gt;
+&lt;li&gt;/images/abc/def -&amp;gt; config D
+最长匹配到G，往下匹配D，停止往下
+你可以看到 任何以/images/开头的都会匹配到D并停止，FG写在这里是没有任何意义的，H是永远轮不到的，这里只是为了说明匹配顺序&lt;/li&gt;
+&lt;li&gt;/documents/document.html -&amp;gt; config C
+匹配到C，往下没有任何匹配，采用C&lt;/li&gt;
+&lt;li&gt;/documents/1.jpg -&amp;gt; configuration E
+匹配到C，往下正则匹配到E&lt;/li&gt;
+&lt;li&gt;/documents/Abc.jpg -&amp;gt; config CC
+最长匹配到C，往下正则顺序匹配到CC，不会往下到E&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h4 id=&#34;实际使用建议&#34;&gt;实际使用建议&lt;/h4&gt;
+
+&lt;pre&gt;&lt;code&gt;所以实际使用中，个人觉得至少有三个匹配规则定义，如下：
+# 直接匹配网站根，通过域名访问网站首页比较频繁，使用这个会加速处理，官网如是说。
+# 这里是直接转发给后端应用服务器了，也可以是一个静态首页
+# 第一个必选规则
+location = / {
+        proxy_pass http://tomcat:8080/index
+}
+# 第二个必选规则是处理静态文件请求，这是nginx作为http服务器的强项
+# 有两种配置模式，目录匹配或后缀匹配,任选其一或搭配使用
+location ^~ /static/ {
+        root /webroot/static/;
+}
+location ~* \.(gif|jpg|jpeg|png|css|js|ico)$ {
+        root /webroot/res/;
+}
+#第三个规则就是通用规则，用来转发动态请求到后端应用服务器
+#非静态文件请求就默认是动态请求，自己根据实际把握
+#毕竟目前的一些框架的流行，带.php,.jsp后缀的情况很少了
+location / {
+        proxy_pass http://tomcat:8080/
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;rewrite规则&#34;&gt;Rewrite规则&lt;/h3&gt;
+
+&lt;p&gt;rewrite功能就是，使用nginx提供的全局变量或自己设置的变量，结合正则表达式和标志位实现url重写以及重定向。rewrite只能放在server{},location{},if{}中，并且只能对域名后边的除去传递的参数外的字符串起作用，例如 &lt;a href=&#34;http://seanlook.com/a/we/index.php?id=1&amp;amp;u=str&#34; target=&#34;_blank&#34;&gt;http://seanlook.com/a/we/index.php?id=1&amp;amp;u=str&lt;/a&gt; 只对/a/we/index.php重写。语法rewrite regex replacement [flag];
+如果相对域名或参数字符串起作用，可以使用全局变量匹配，也可以使用proxy_pass反向代理。&lt;/p&gt;
+
+&lt;p&gt;表明看rewrite和location功能有点像，都能实现跳转，主要区别在于rewrite是在同一域名内更改获取资源的路径，而location是对一类路径做控制访问或反向代理，可以proxy_pass到其他机器。很多情况下rewrite也会写在location里，它们的执行顺序是：&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;执行server块的rewrite指令&lt;/li&gt;
+&lt;li&gt;执行location匹配&lt;/li&gt;
+&lt;li&gt;执行选定的location中的rewrite指令&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;如果其中某步URI被重写，则重新循环执行1-3，直到找到真实存在的文件；循环超过10次，则返回500 Internal Server Error错误。&lt;/p&gt;
+
+&lt;h4 id=&#34;flag标志位&#34;&gt;flag标志位&lt;/h4&gt;
+
+&lt;ul&gt;
+&lt;li&gt;last : 相当于Apache的[L]标记，表示完成rewrite&lt;/li&gt;
+&lt;li&gt;break : 停止执行当前虚拟主机的后续rewrite指令集&lt;/li&gt;
+&lt;li&gt;redirect : 返回302临时重定向，地址栏会显示跳转后的地址&lt;/li&gt;
+&lt;li&gt;permanent : 返回301永久重定向，地址栏会显示跳转后的地址&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;因为301和302不能简单的只返回状态码，还必须有重定向的URL，这就是return指令无法返回301,302的原因了。这里 last 和 break 区别有点难以理解：&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;last一般写在server和if中，而break一般使用在location中&lt;/li&gt;
+&lt;li&gt;last不终止重写后的url匹配，即新的url会再从server走一遍匹配流程，而break终止重写后的匹配&lt;/li&gt;
+&lt;li&gt;break和last都能组织继续执行后面的rewrite指令&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h4 id=&#34;if指令与全局变量&#34;&gt;if指令与全局变量&lt;/h4&gt;
+
+&lt;p&gt;&lt;strong&gt;if判断指令&lt;/strong&gt;
+语法为if(condition){&amp;hellip;}，对给定的条件condition进行判断。如果为真，大括号内的rewrite指令将被执行，if条件(conditon)可以是如下任何内容：
+ - 当表达式只是一个变量时，如果值为空或任何以0开头的字符串都会当做false
+ - 直接比较变量和内容时，使用=或!=
+ - ~正则表达式匹配，~*不区分大小写的匹配，!~区分大小写的不匹配&lt;/p&gt;
+
+&lt;p&gt;-f和!-f用来判断是否存在文件
+-d和!-d用来判断是否存在目录
+-e和!-e用来判断是否存在文件或目录
+-x和!-x用来判断文件是否可执行&lt;/p&gt;
+
+&lt;p&gt;例如：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;if ($http_user_agent ~ MSIE) {
+        rewrite ^(.*)$ /msie/$1 break;
+} //如果UA包含&amp;quot;MSIE&amp;quot;，rewrite请求到/msid/目录下
+if ($http_cookie ~* &amp;quot;id=([^;]+)(?:;|$)&amp;quot;) {
+    set $id $1;
+} //如果cookie匹配正则，设置变量$id等于正则引用部分
+if ($request_method = POST) {
+    return 405;
+} //如果提交方法为POST，则返回状态405（Method not allowed）。return不能返回301,302
+if ($slow) {
+    limit_rate 10k;
+} //限速，$slow可以通过 set 指令设置
+if (!-f $request_filename){
+    break;
+    proxy_pass  http://127.0.0.1;
+} //如果请求的文件名不存在，则反向代理到localhost 。这里的break也是停止rewrite检查
+if ($args ~ post=140){
+    rewrite ^ http://example.com/ permanent;
+} //如果query string中包含&amp;quot;post=140&amp;quot;，永久重定向到example.com
+location ~* \.(gif|jpg|png|swf|flv)$ {
+    valid_referers none blocked www.jefflei.com www.leizhenfang.com;
+    if ($invalid_referer) {
+        return 404;
+    } //防盗链
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;&lt;strong&gt;全局变量&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;下面是可以用作if判断的全局变量
+ - $args ： #这个变量等于请求行中的参数，同$query_string
+ - $content_length ： 请求头中的Content-length字段。
+ - $content_type ： 请求头中的Content-Type字段。
+ - $document_root ： 当前请求在root指令中指定的值。
+ - $host ： 请求主机头字段，否则为服务器名称。
+ - $http_user_agent ： 客户端agent信息
+ - $http_cookie ： 客户端cookie信息
+ - $limit_rate ： 这个变量可以限制连接速率。
+ - $request_method ： 客户端请求的动作，通常为GET或POST。
+ - $remote_addr ： 客户端的IP地址。
+ - $remote_port ： 客户端的端口。
+ - $remote_user ： 已经经过Auth Basic Module验证的用户名。
+ - $request_filename ： 当前请求的文件路径，由root或alias指令与URI请求生成。
+ - $scheme ： HTTP方法（如http，https）。
+ - $server_protocol ： 请求使用的协议，通常是HTTP/1.0或HTTP/1.1。
+ - $server_addr ： 服务器地址，在完成一次系统调用后可以确定这个值。
+ - $server_name ： 服务器名称。
+ - $server_port ： 请求到达服务器的端口号。
+ - $request_uri ： 包含请求参数的原始URI，不包含主机名，如：”/foo/bar.php?arg=baz”。
+ - $uri ： 不带请求参数的当前URI，$uri不包含主机名，如”/foo/bar.html”。
+ - $document_uri ： 与$uri相同。&lt;/p&gt;
+
+&lt;p&gt;例：&lt;a href=&#34;http://localhost:88/test1/test2/test.php&#34; target=&#34;_blank&#34;&gt;http://localhost:88/test1/test2/test.php&lt;/a&gt;
+$host：localhost
+$server_port：88
+$request_uri：&lt;a href=&#34;http://localhost:88/test1/test2/test.php&#34; target=&#34;_blank&#34;&gt;http://localhost:88/test1/test2/test.php&lt;/a&gt;
+$document_uri：/test1/test2/test.php
+$document_root：/var/www/html
+$request_filename：/var/www/html/test1/test2/test.php&lt;/p&gt;
+
+&lt;h4 id=&#34;常用正则&#34;&gt;常用正则&lt;/h4&gt;
+
+&lt;ul&gt;
+&lt;li&gt;. ： 匹配除换行符以外的任意字符&lt;/li&gt;
+&lt;li&gt;? ： 重复0次或1次&lt;/li&gt;
+&lt;li&gt;+ ： 重复1次或更多次&lt;/li&gt;
+&lt;li&gt;* ： 重复0次或更多次&lt;/li&gt;
+&lt;li&gt;\d ：匹配数字&lt;/li&gt;
+&lt;li&gt;^ ： 匹配字符串的开始&lt;/li&gt;
+&lt;li&gt;$ ： 匹配字符串的介绍&lt;/li&gt;
+&lt;li&gt;{n} ： 重复n次&lt;/li&gt;
+&lt;li&gt;{n,} ： 重复n次或更多次&lt;/li&gt;
+&lt;li&gt;[c] ： 匹配单个字符c&lt;/li&gt;
+&lt;li&gt;[a-z] ： 匹配a-z小写字母的任意一个&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;小括号()之间匹配的内容，可以在后面通过$1来引用，$2表示的是前面第二个()里的内容。正则里面容易让人困惑的是\转义特殊字符。&lt;/p&gt;
+
+&lt;h4 id=&#34;rewrite实例&#34;&gt;rewrite实例&lt;/h4&gt;
+
+&lt;p&gt;例1：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;http {
+    # 定义image日志格式
+    log_format imagelog &#39;[$time_local] &#39; $image_file &#39; &#39; $image_type &#39; &#39; $body_bytes_sent &#39; &#39; $status;
+    # 开启重写日志
+    rewrite_log on;
+    server {
+        root /home/www;
+        location / {
+            # 重写规则信息
+            error_log logs/rewrite.log notice;
+            # 注意这里要用‘’单引号引起来，避免{}
+            rewrite &#39;^/images/([a-z]{2})/([a-z0-9]{5})/(.*)\.(png|jpg|gif)$&#39; /data?file=$3.$4;
+            # 注意不能在上面这条规则后面加上“last”参数，否则下面的set指令不会执行
+            set $image_file $3;
+            set $image_type $4;
+        }
+        location /data {
+            # 指定针对图片的日志格式，来分析图片类型和大小
+            access_log logs/images.log mian;
+            root /data/images;
+            # 应用前面定义的变量。判断首先文件在不在，不在再判断目录在不在，如果还不在就跳转到最后一个url里
+            try_files /$arg_file /image404.html;
+        }
+        location = /image404.html {
+            # 图片不存在返回特定的信息
+            return 404 &amp;quot;image not found\n&amp;quot;;
+        }
+    }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;对形如/images/ef/uh7b3/test.png的请求，重写到/data?file=test.png，于是匹配到location /data，先看/data/images/test.png文件存不存在，如果存在则正常响应，如果不存在则重写tryfiles到新的image404 location，直接返回404状态码。&lt;/p&gt;
+
+&lt;p&gt;例2：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;    rewrite ^/images/(.*)_(\d+)x(\d+)\.(png|jpg|gif)$ /resizer/$1.$4?width=$2&amp;amp;height=$3? last;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;对形如/images/bla_500x400.jpg的文件请求，重写到/resizer/bla.jpg?width=500&amp;amp;height=400地址，并会继续尝试匹配location。&lt;/p&gt;
+
+&lt;h4 id=&#34;参考&#34;&gt;参考&lt;/h4&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;http://www.nginx.cn/216.html&#34; target=&#34;_blank&#34;&gt;http://www.nginx.cn/216.html&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://www.ttlsa.com/nginx/nginx-rewriting-rules-guide/&#34; target=&#34;_blank&#34;&gt;http://www.ttlsa.com/nginx/nginx-rewriting-rules-guide/&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;老僧系列nginx之rewrite规则快速上手&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;http://fantefei.blog.51cto.com/2229719/919431&#34; target=&#34;_blank&#34;&gt;http://fantefei.blog.51cto.com/2229719/919431&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+      
+    </item>
+    
+    <item>
+      <title>信号量处理总结</title>
+      <link>https://checkking.github.io/post/cs/singals/</link>
+      <pubDate>Thu, 09 Feb 2017 21:07:16 +0800</pubDate>
+      <author>Emir Ribic</author>
+      <guid>https://checkking.github.io/post/cs/singals/</guid>
+      <description></description>
+      
+      <content>
+
+&lt;h4 id=&#34;背景&#34;&gt;背景&lt;/h4&gt;
+
+&lt;p&gt;最近在做一个实时日志监控系统，系统架构是filebeat+logstash+twisted, 其中filebeat用来监控日志文件的新增变动，logstash格式化日志，twisted作为server，接收logstash的输入, 实时计算ctr，
+server的统计数据要每小时持久化一次，也就是要写进mysql数据库中。但是在写入Mysql的过程中不影响server接收请求处理。因此想到的方案是在进入下一个小时的这一时刻fork一个进程，然后再子进程中
+进行写入mysql操作。这种方案和redis写入快照的方案一样，因为twisted和redis都是基于事件的单进程单线程服务器模型, 利用fork的copy on write，保证在子进程中数据和父进程不会混乱。这种方案是work的。
+但是twisted中用信号量有一点小问题，就是不能用SIGCHLD这个信号量来通知父进程子进程退出了, 最终无奈让子进程在退出前向父进程发送SIGUSR1自定义信号量, 父进程在收到这个信号量时改变状态参数。
+之前对信号量处理上有些模糊的地方，想通过本篇博客总结一下。&lt;/p&gt;
+
+&lt;h4 id=&#34;什么是信号量&#34;&gt;什么是信号量&lt;/h4&gt;
+
+&lt;p&gt;Unix信号是Unix系统的一种软件形式异常，一个信号就是一条消息，它通知进程系统中发生了一个某种类型的事件。在linux下输入&amp;rdquo;man 7 signal&amp;rdquo;就能得到Linux系统上支持的30中不同类型的信号。&lt;/p&gt;
+
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Signal&lt;/th&gt;
+&lt;th&gt;Value&lt;/th&gt;
+&lt;th&gt;Action&lt;/th&gt;
+&lt;th&gt;Comment&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;SIGHUP&lt;/td&gt;
+&lt;td&gt;1&lt;/td&gt;
+&lt;td&gt;Term&lt;/td&gt;
+&lt;td&gt;Hangup detected on controlling terminal or death of controlling process&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGINT&lt;/td&gt;
+&lt;td&gt;2&lt;/td&gt;
+&lt;td&gt;Term&lt;/td&gt;
+&lt;td&gt;Interrupt from keyboard&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGQUIT&lt;/td&gt;
+&lt;td&gt;3&lt;/td&gt;
+&lt;td&gt;Core&lt;/td&gt;
+&lt;td&gt;Quit from keyboard&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGILL&lt;/td&gt;
+&lt;td&gt;1&lt;/td&gt;
+&lt;td&gt;Term&lt;/td&gt;
+&lt;td&gt;Hangup detected on controlling terminal or death of controlling process&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGINT&lt;/td&gt;
+&lt;td&gt;4&lt;/td&gt;
+&lt;td&gt;Core&lt;/td&gt;
+&lt;td&gt;Illegal Instruction&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGABRT&lt;/td&gt;
+&lt;td&gt;6&lt;/td&gt;
+&lt;td&gt;Core&lt;/td&gt;
+&lt;td&gt;Abort signal from abort(3)&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGFPE&lt;/td&gt;
+&lt;td&gt;8&lt;/td&gt;
+&lt;td&gt;Core&lt;/td&gt;
+&lt;td&gt;Floating point exception&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGKILL&lt;/td&gt;
+&lt;td&gt;9&lt;/td&gt;
+&lt;td&gt;Term&lt;/td&gt;
+&lt;td&gt;Kill signal&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGSEGV&lt;/td&gt;
+&lt;td&gt;11&lt;/td&gt;
+&lt;td&gt;Core&lt;/td&gt;
+&lt;td&gt;Invalid memory reference&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGPIPE&lt;/td&gt;
+&lt;td&gt;13&lt;/td&gt;
+&lt;td&gt;Term&lt;/td&gt;
+&lt;td&gt;Broken pipe: write to pipe with noreaders&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGALRM&lt;/td&gt;
+&lt;td&gt;14&lt;/td&gt;
+&lt;td&gt;Term&lt;/td&gt;
+&lt;td&gt;Timer signal from alarm(2)&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGTERM&lt;/td&gt;
+&lt;td&gt;15&lt;/td&gt;
+&lt;td&gt;Term&lt;/td&gt;
+&lt;td&gt;Termination signal&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGUSR1&lt;/td&gt;
+&lt;td&gt;30,10,16&lt;/td&gt;
+&lt;td&gt;Term&lt;/td&gt;
+&lt;td&gt;User-defined signal 1&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGUSR2&lt;/td&gt;
+&lt;td&gt;31,12,17&lt;/td&gt;
+&lt;td&gt;Term&lt;/td&gt;
+&lt;td&gt;User-defined signal 2&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGCHLD&lt;/td&gt;
+&lt;td&gt;20,17,18&lt;/td&gt;
+&lt;td&gt;Ign&lt;/td&gt;
+&lt;td&gt;Child stopped or terminated&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGCONT&lt;/td&gt;
+&lt;td&gt;19,18,25&lt;/td&gt;
+&lt;td&gt;Cont&lt;/td&gt;
+&lt;td&gt;Continue if stopped&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGSTOP&lt;/td&gt;
+&lt;td&gt;17,19,23&lt;/td&gt;
+&lt;td&gt;Stop&lt;/td&gt;
+&lt;td&gt;Stop process&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGTSTP&lt;/td&gt;
+&lt;td&gt;18,20,24&lt;/td&gt;
+&lt;td&gt;Stop&lt;/td&gt;
+&lt;td&gt;Stop typed at terminal&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGTTIN&lt;/td&gt;
+&lt;td&gt;21,21,26&lt;/td&gt;
+&lt;td&gt;Stop&lt;/td&gt;
+&lt;td&gt;Terminal input for background process&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;SIGTTOU&lt;/td&gt;
+&lt;td&gt;22,22,27&lt;/td&gt;
+&lt;td&gt;Stop&lt;/td&gt;
+&lt;td&gt;Terminal output for background process&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;还有其他的没有列出来，可以自行查阅。信号提供了一种机制，通知用户进程发生了这些异常。 比如一个进程试图除以0，那么内核就发送给它一个SIGFPE信号。如果进程进行非法存储器引用，内核就发送一条
+SIGSEGV信号， 当一个子进程终止或停止时，内核发送一个SIGCHLD信号给父进程。&lt;/p&gt;
+
+&lt;h4 id=&#34;信号相关的操作函数&#34;&gt;信号相关的操作函数&lt;/h4&gt;
+
+&lt;h5 id=&#34;发送信号&#34;&gt;发送信号&lt;/h5&gt;
+
+&lt;ol&gt;
+&lt;li&gt;kill和raise函数&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;kill函数将信号发送给进程或进程组。raise函数则允许进程向自身发送信号。&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;#include &amp;lt;signal.h&amp;gt;
+int kill(pid_t pid, int signo);
+int raise(int signo);
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;两个函数返回值：成功0，失败-1&lt;/p&gt;
+
+&lt;p&gt;kill 的pid参数有4种不同的情况：
+ - pid &amp;gt; 0  将改信号发送给进程ID为pid的进程
+ - pid == 0 将该信号发送给与发送进程同属一个进程组的所有进程, 不包括系统进程集.
+ - pid &amp;lt; 0  将信号发送给其进程组ID等于pid的绝对值, 而且发送进程具有向其发送信号的权限.
+ - pid == -1    将信号发送给有权限发送信号的所有进程。&lt;/p&gt;
+
+&lt;p&gt;编号为0的信号定义为空信号， 如果参数是0, kill不发送信号。如果pid不存在，则kill返回-1。&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;alarm和pause函数&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;#include &amp;lt;signal.h&amp;gt;
+unsigned int alarm(unsigned int seconds);
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;返回值：0或以前设置的闹钟时间的余留秒数&lt;/p&gt;
+
+&lt;p&gt;使用alarm函数可以设置一个计时器，在将来某个指定的时间该计时器会超时。当计时器超时，产生SIGALRM信号。
+每个进程只能有一个闹钟时钟。如果在调用alarm时，以前已为改进程设置过闹钟时钟，而且他还没超时，则将该
+闹钟时钟的余留值作为本次alarm函数调用的值返回。以前登记的闹钟时钟则被新替换。&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;#include &amp;lt;signal.h&amp;gt;
+int pause(void);
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;返回值：-1, 并将errno设置为EINTR&lt;/p&gt;
+
+&lt;p&gt;只有执行了一个信号处理程序并返回时，pause才返回。在这种情况,pause返回-1, 并将errno设置EINTR. 通过pause和
+alarm函数可以简单的实现sleep函数，但是有些点需要注意，具体请阅读《Unix环境高级编程》第10.10章节。&lt;/p&gt;
+
+&lt;h5 id=&#34;接收信号&#34;&gt;接收信号&lt;/h5&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;#include &amp;lt;signal.h&amp;gt;
+
+typedef void (*sighandler_t)(int);
+sighandler_t signal(int signum, sighandler_t handler);
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;进程可以通过使用signal函数修改和信号相关联的默认行为。唯一例外是SIGSTOP和SIGKILL，它们的默认行为不能被修改的。
+signal函数可以通过下列三种方法之一来改变和信号signum相关联的行为：
+ - 如果handler是SIG_IGN， 那么忽略类型为signum的信号。
+ - 如果handler是sig_DEF, 那么类型为signum的信号恢复默认行为.
+ - 否则，handler就是用户定义的函数的地址，这个函数称为信号处理程序。&lt;/p&gt;
+
+&lt;h5 id=&#34;信号处理问题&#34;&gt;信号处理问题&lt;/h5&gt;
+
+&lt;p&gt;对于只捕获一个信号并终止的程序来说，信号处理是简单直接的。然而，当一个程序要捕获多个信号时，一些细微的问题就产生了。
+- &lt;strong&gt;待处理信号被阻塞&lt;/strong&gt; Unix信号处理程序通常会阻塞当前处理程序正在处理的类型的待处理信号。比如，假设一个进程捕获了
+一个SIGINT信号，并且当前正在运行它的SIGINT处理程序。如果另一个SIGINT信号传递到整个进程，那么这个SIGINT将变成待处理的，
+但是不会被接收，直到处理程序返回。
+- &lt;strong&gt;待处理信号不会排队等待&lt;/strong&gt; 任意类型至多只有一个待处理信号。因此，如果有两个类型为k的信号传送到一个目的进程，而由于
+目前的进程当前正在执行信号k的处理程序，所以信号k是阻塞的，那么第二个信号就被简单地丢弃，它不会排队等待。
+- &lt;strong&gt;系统调用可以被中断&lt;/strong&gt; 像read、wait和accept这样的系统调用。在某些系统中，当处理程序捕获到一个信号时，被中断的慢速系统调用
+在信号处理程序返回时不再继续，而是立即返回给用户一个错误条件，并将errno设置为EINTR.
+- &lt;strong&gt;同步流以避免讨厌的并发错误&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;看一个csapp书中第8.5.7章节的一个例子：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;void handler(int sig) {
+    pid_t pid;
+    while ((pid = waitpid(-1, NULL, 0)) &amp;gt; 0)
+        deletejob(pid);
+    if (errno != ECHILD)
+        unix_error(&amp;quot;waitpid error&amp;quot;);
+}
+
+int main(int argc, char **argv) {
+    int pid;
+
+    Signal(SIGCHLD, handler);
+
+    initjobs(); // initialize the job list
+
+    while (1) {
+        // child process
+        if ((pid = fork()) == 0) {
+            Execve(&amp;quot;/bin/date&amp;quot;, argv, NULL);
+        }
+
+        // parent process
+        addjob(pid);
+    }
+    exit(0);
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;&lt;strong&gt;异常情况&lt;/strong&gt;:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;父进程执行fork函数，内核调度新创建的子进程运行，而不是父进程.&lt;/li&gt;
+&lt;li&gt;在父进程能够再次执行运行前，子进程终止，并且变成一个僵死进程，使得内核传递一个SIGCHLD信号给父进程。&lt;/li&gt;
+&lt;li&gt;后来，当父进程再次变成可运行但又在它执行前，内核注意到待处理的SIGCHLD信号，并调用信号处理函数处理这个信号。&lt;/li&gt;
+&lt;li&gt;处理程序回收终止的子进程，并调用deletejob， 这个函数什么也不做，因为父进程还没有把孩子进程添加到列表。&lt;/li&gt;
+&lt;li&gt;在处理程序运行完毕，内核运行父进程，父进程从fork返回，通过调用addjob错误地把(已经不存在)子进程添加到作业列表中。&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;这是一个&lt;strong&gt;竞争(race)&lt;/strong&gt;的经典同步错误的示例。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;怎么解决&lt;/strong&gt;:&lt;/p&gt;
+
+&lt;p&gt;通过在调用fork之前，阻塞SIGCHLD信号，然后再我们调用了addjob之后，就取消阻塞这个信号，我们保证了在子进程被添加到
+作业列表中之后回收孩子进程。 注意，子进程继承了他们父进程的被阻塞集合，所以我们必须在调用execve之前，小心地解除子进程
+中阻塞的SIGCHLD信号。&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;void handler(int sig) {
+    pid_t pid;
+    while ((pid = waitpid(-1, NULL, 0)) &amp;gt; 0)
+        deletejob(pid);
+    if (errno != ECHILD)
+        unix_error(&amp;quot;waitpid error&amp;quot;);
+}
+
+int main(int argc, char **argv) {
+    int pid;
+    sigset_t mask;
+
+    Signal(SIGCHLD, handler);
+
+    initjobs(); // initialize the job list
+
+    while (1) {
+        Sigemptyset(&amp;amp;mask);
+        Sigaddset(&amp;amp;mask, SIGCHLD);
+        Sigprocmask(SIG_BLOCK, &amp;amp;mask, NULL);
+        // child process
+        if ((pid = fork()) == 0) {
+            Sigprocmask(SIG_UNBLOCK, &amp;amp;mask, NULL);
+            Execve(&amp;quot;/bin/date&amp;quot;, argv, NULL);
+        }
+
+        // parent process
+        addjob(pid);
+        Sigprocmask(SIG_UNBLOCK, &amp;amp;mask, NULL);
+    }
+    exit(0);
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h5 id=&#34;fork-exec对子进程继承父进程信号处理机制的影响&#34;&gt;fork exec对子进程继承父进程信号处理机制的影响&lt;/h5&gt;
+
+&lt;p&gt;当一个进程调用fork时，因为子进程在开始时复制父进程的存储映像，信号捕捉函数的地址在子进程中是有意义的，所以子进程继承父进程的信号处理方式。
+特殊的是exec，因为exec运行新的程序后会覆盖从父进程继承来的存储映像，那么信号捕捉函数在新程序中已无意义，所以exec会将原先设置为要捕捉的信号都更改为默认动作。&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;fork后子进程会继承父进程的信号屏蔽字，再继续exec后仍会继承这个信号屏蔽字。同样地，直接调用system后子进程也会继承父进程的信号屏蔽字。&lt;/li&gt;
+&lt;li&gt;fork后子进程会继承父进程的信号处理设置，再继续exec后就不会继承这个信号处理设置了。&lt;/li&gt;
+&lt;li&gt;fork后子进程会继承父进程的控制终端，且子进程在父进程的进程组和会话组中；再继续exec后仍会继承这个控制终端，仍在父进程的进程组和会话组中。同样地，调用system后子进程会继承父进程的控制终端，且子进程在父进程的进程组和会话组中。&lt;/li&gt;
+&lt;li&gt;Ctrl+c产生的SIGINT信号会发送给父进程、fork后的子进程以及继续exec的子进程；同样地，也会发给system调用运行的子进程。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;当一个进程调用fork时，因为子进程在开始时复制父进程的存储映像，信号捕捉函数的地址在子进程中是有意义的，所以子进程继承父进程的信号处理方式。
+特殊的是exec，因为exec运行新的程序后会覆盖从父进程继承来的存储映像，那么信号捕捉函数在新程序中已无意义，所以exec会将原先设置为要捕捉的信号都更改为默认动作。&lt;/p&gt;
+
+&lt;h5 id=&#34;参考&#34;&gt;参考&lt;/h5&gt;
+
+&lt;ol&gt;
+&lt;li&gt;《unix环境高级编程》&lt;/li&gt;
+&lt;li&gt;《深入理解计算机系统》&lt;/li&gt;
+&lt;/ol&gt;
+</content>
+      
+    </item>
+    
+    <item>
+      <title>从wc -l说起---如何统计大文件的行数</title>
+      <link>https://checkking.github.io/post/arch/how_compute_big_file_lines/</link>
+      <pubDate>Fri, 13 Jan 2017 21:07:16 +0800</pubDate>
+      <author>Emir Ribic</author>
+      <guid>https://checkking.github.io/post/arch/how_compute_big_file_lines/</guid>
+      <description></description>
+      
+      <content>
+
+&lt;h4 id=&#34;问题引入&#34;&gt;问题引入&lt;/h4&gt;
+
+&lt;p&gt;昨天工作上有一个任务根据nginx日志做一些数据统计。由于日志文件很大，而且不断增大中。如果我要统计一小时以内的日志，这时候就没必要对所有日志都扫一遍。我的初步思路是先用wc -l统计一下日志行数，然后根据当前时间估算出平均每分钟产生了多少条日志。这样就可以估算一小时以内的日志条数了。然后用tail -n就可以了。
+但是发现wc -l其实也是有点慢的。从gnu上把bash wc实现代码(&lt;a href=&#34;http://mirrors.ustc.edu.cn/gnu/coreutils/coreutils-8.9.tar.gz)wget&#34; target=&#34;_blank&#34;&gt;http://mirrors.ustc.edu.cn/gnu/coreutils/coreutils-8.9.tar.gz)wget&lt;/a&gt; 下来看了。统计单个文件的内部实现是调用read(int filedes, char *buf, unsigned nbytes) 先把内容读入buffer，然后按字节统计，在实现上做了一些细节优化，性能还是很好的。
+但是不管怎么样还是要对所有字节都扫一遍。有没有更好的方式呢？&lt;/p&gt;
+
+&lt;h4 id=&#34;粗略统计文件行数&#34;&gt;粗略统计文件行数&lt;/h4&gt;
+
+&lt;p&gt;unix中struct state记录文件所有信息，但是没有文件行数，因此不能直接get到。&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;struct stat {
+    dev_t     st_dev;         /* ID of device containing file */
+    ino_t     st_ino;         /* inode number */
+    mode_t    st_mode;        /* file type and mode */
+    nlink_t   st_nlink;       /* number of hard links */
+    uid_t     st_uid;         /* user ID of owner */
+    gid_t     st_gid;         /* group ID of owner */
+    dev_t     st_rdev;        /* device ID (if special file) */
+    off_t     st_size;        /* total size, in bytes */
+    blksize_t st_blksize;     /* blocksize for filesystem I/O */
+    blkcnt_t  st_blocks;      /* number of 512B blocks allocated */
+
+    /* Since Linux 2.6, the kernel supports nanosecond
+       precision for the following timestamp fields.
+       For the details before Linux 2.6, see NOTES. */
+
+    struct timespec st_atim;  /* time of last access */
+    struct timespec st_mtim;  /* time of last modification */
+    struct timespec st_ctim;  /* time of last status change */
+
+#define st_atime st_atim.tv_sec      /* Backward compatibility */
+#define st_mtime st_mtim.tv_sec
+#define st_ctime st_ctim.tv_sec
+};
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;但是有文件大小(st_size)，这样我们可以根据这个信息，然后再读取文件中的m行，酸楚其大小m_size, 这样平均一行大小为m_size/m，这样估算的行数就是st_size*m/m_size。
+这样速度就会快很多。
+我写了下面的程序：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-c&#34;&gt;#include &amp;lt;stdio.h&amp;gt;
+#include &amp;lt;stdlib.h&amp;gt;
+#include &amp;lt;sys/stat.h&amp;gt;
+#include &amp;lt;sys/types.h&amp;gt;
+#include &amp;lt;fcntl.h&amp;gt;
+#include &amp;lt;unistd.h&amp;gt;
+#include &amp;lt;sys/stat.h&amp;gt;
+#include &amp;lt;string.h&amp;gt;
+
+#define SMALL_FILE_MAX_SIZE 4096
+#define DEFAULT_LINE_NUM 100
+
+void show_usage(char **argv) {
+    fprintf(stdout, &amp;quot;Usage: %s FILE\n&amp;quot;, argv[0]);
+}
+
+int small_file_line_counter(int fd, size_t* lines) {
+    char buffer[SMALL_FILE_MAX_SIZE] = {0};
+    char* buf = buffer;
+    *lines = 0;
+    int ret = 0;
+    int i = 0;
+    while ((ret = read(fd, (void *)buf, SMALL_FILE_MAX_SIZE)) &amp;gt; 0) {
+        i = 0;
+        while (i != ret) {
+            if (*(buf + i) == &#39;\n&#39;) {
+                *lines = *lines + 1;
+            }
+            ++i;
+        }
+        buf = buffer;
+    }
+
+    return ret;
+}
+
+int large_file_line_counter(int fd, size_t total_size, size_t* lines) {
+   int ret = 0;
+   char buffer[SMALL_FILE_MAX_SIZE] = {0};
+   char* buf = buffer;
+   int i = 0;
+   int cnt = 0;
+   size_t size = 0;
+   size_t line_size = 0;
+   double size_of_each_line = 0.0;
+   while (cnt &amp;lt; DEFAULT_LINE_NUM) {
+       ret = read(fd, buf, SMALL_FILE_MAX_SIZE);
+       if (ret == 0) {
+           break;
+       }
+       if (ret == -1) {
+           return -1;
+       }
+       i = 0;
+       while (i != ret) {
+           line_size += 1;
+           if (*(buf + i) == &#39;\n&#39;) {
+               size += line_size;
+               line_size = 0;
+               cnt += 1;
+               if (cnt == DEFAULT_LINE_NUM) {
+                   break;
+               }
+           }
+           ++i;
+       }
+       memset((void *)buffer, 0, SMALL_FILE_MAX_SIZE);
+       buf = buffer;
+   }
+   size_of_each_line = (double)size / cnt;
+   *lines = (int)(total_size / size_of_each_line);
+   return 0;
+}
+
+int main (int argc, char **argv)
+{
+    int fd = -1;
+    struct stat st;
+    size_t line_count = 0;
+    if (argc != 2) {
+        show_usage(argv);
+        exit(1);
+    }
+    if (stat(argv[1], &amp;amp;st) != 0) {
+        fprintf(stderr, &amp;quot;Cannot get state of file: %s\n&amp;quot;, argv[1]);
+        exit(1);
+    }
+
+    fd = open(argv[1], O_RDONLY);
+    if (fd == -1) {
+        fprintf(stderr, &amp;quot;Cannot open file: %s\n&amp;quot;, argv[1]);
+        exit(1);
+    }
+    if (st.st_size &amp;lt; SMALL_FILE_MAX_SIZE) {
+        if (small_file_line_counter(fd, &amp;amp;line_count) == -1) {
+            fprintf(stderr, &amp;quot;Get line count of file: %s failed!\n&amp;quot;, argv[1]);
+            exit(1);
+        }
+    } else {
+        if(large_file_line_counter(fd, st.st_size, &amp;amp;line_count) == -1) {
+            fprintf(stderr, &amp;quot;Get line count of file: %s failed!\n&amp;quot;, argv[1]);
+            exit(1);
+        }
+    }
+    close(fd);
+
+    fprintf(stdout, &amp;quot;%s\t%d\n&amp;quot;, argv[1], (int)line_count);
+
+    return 0;
+}
+
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;对于像nginx日志这种，准确率有90%+&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;[work@hkg02-pcf-csuours00:~/chenkang/codes/c]$./mylc /home/soft/resty/nginx/logs/access.js_mobojoy.conf_20170119.log
+/home/soft/resty/nginx/logs/access.js_mobojoy.conf_20170119.log 35525363
+[work@hkg02-pcf-csuours00:~/chenkang/codes/c]$wc -l /home/soft/resty/nginx/logs/access.js_mobojoy.conf_20170119.log
+37404978 /home/soft/resty/nginx/logs/access.js_mobojoy.conf_20170119.log
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;目前的不足：
+1. 估算每行的平均长度只是在前面读取100行，没有随机读取.
+2. 参数不可配置。&lt;/p&gt;
+</content>
+      
+    </item>
+    
+    <item>
       <title>C&#43;&#43;前向声明</title>
       <link>https://checkking.github.io/post/lang/cpp1/</link>
       <pubDate>Fri, 01 Jan 2016 21:07:16 +0800</pubDate>

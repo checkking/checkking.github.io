@@ -7,10 +7,97 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>&amp;copy; &lt;a href=&#34;https://github.com/checkking&#34;&gt;checkking&lt;/a&gt; 2018</copyright>
-    <lastBuildDate>Fri, 01 Jan 2016 21:07:16 +0800</lastBuildDate>
+    <lastBuildDate>Tue, 28 Feb 2017 21:07:16 +0800</lastBuildDate>
     
 	<atom:link href="https://checkking.github.io/post/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>谈谈enable_shared_from_this</title>
+      <link>https://checkking.github.io/post/lang/cpp2/</link>
+      <pubDate>Tue, 28 Feb 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/lang/cpp2/</guid>
+      <description>以前都没有用过enable_shared_from_this模板类，虽然经常遇到但是也没怎么去关注，今天抽时间好好学习了下enable_shared_from_this模板类，发现在使用shared_ptr模板类和enable_shared_from_this模板类时有许多陷阱的，故记录于此。
+什么时候该使用enable_shared_from_this模板类 在看下面的例子之前，简单说下使用背景，单有一个类，某个函数需要返回当前对象的指针，我们返回的是shared_ptr，为什么使用智能指针呢，这是因为：当我们使用智能指针管理资源时，必须统一使用智能指针，而不能再某些地方使用智能指针，某些地方使用原始指针，否则不能保持智能指针的语义，从而产生各种错误。好了，介绍完背景，看下面的一段小程序：
+#include &amp;lt;iostream&amp;gt; #include &amp;lt;boost/shared_ptr.hpp&amp;gt; class Test { public: //析构函数 ~Test() { std::cout &amp;lt;&amp;lt; &amp;quot;Test Destructor.&amp;quot; &amp;lt;&amp;lt; std::endl; } //获取指向当前对象的指针 boost::shared_ptr&amp;lt;Test&amp;gt; GetObject() { boost::shared_ptr&amp;lt;Test&amp;gt; pTest(this); return pTest; } }; int main(int argc, char *argv[]) { { boost::shared_ptr&amp;lt;Test&amp;gt; p( new Test( )); boost::shared_ptr&amp;lt;Test&amp;gt; q = p-&amp;gt;GetObject(); } return 0; }  程序输出：
+Test Destructor. Test Destructor.  从上面的输出你发现了什么，很明显的发现只创建new了一个Test对象，但是却调用了两次析构函数，这对程序来说肯定是一个灾难。为什么会出现这种情况呢？main函数中的boost::shared_ptr&amp;lt;Test&amp;gt; p( new Test( )); 将shared_ptr中引用计数器的值设置为1，而在GetObject函数中又通过boost::shared_ptr&amp;lt;Test&amp;gt; pTest(this)又将shared_ptr中的引用计数器的值增加了1，故在析构时一个Test对象被析构了两次。即产生这个错误的原因是通过同一个Test指针对象创建了多个shared_ptr，这是绝对禁止的。同时这也提醒我们在使用shared_ptr时一定不能通过同一个指针对象创建一个以上的shared_ptr对象。那么有什么方法从一个类的成员函数中获取当前对象的shared_ptr呢，其实方法很简单：只需要该类继承至enable_shared_from_this模板类,然后在需要shared_prt的地方调用enable_shared_from_this模板类的成员函数shared_from_this()即可，下面是改进后的代码：
+#include &amp;lt;iostream&amp;gt; #include &amp;lt;boost/enable_shared_from_this.hpp&amp;gt; #include &amp;lt;boost/shared_ptr.</description>
+    </item>
+    
+    <item>
+      <title>nginx源码阅读点滴</title>
+      <link>https://checkking.github.io/post/nginx/nginx4/</link>
+      <pubDate>Fri, 24 Feb 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/nginx/nginx4/</guid>
+      <description>ngx_add_inherited_sockets 这个函数的目的是为了实现nginx平滑升级时获取原来的监听fd, 通过环境变量NGINX完成socket的继承，继承来的socket将会放到init_cycle的listening数组中。在NGINX环境变量中，每个socket中间用冒号或分号隔开。完成继承同时设置全局变量ngx_inherited为1。 相关代码：
+ src/core/nginx.c
+static ngx_int_t ngx_add_inherited_sockets(ngx_cycle_t *cycle) { u_char *p, *v, *inherited; ngx_int_t s; ngx_listening_t *ls; inherited = (u_char *) getenv(NGINX_VAR); if (inherited == NULL) { return NGX_OK; } ngx_log_error(NGX_LOG_NOTICE, cycle-&amp;gt;log, 0, &amp;quot;using inherited sockets from \&amp;quot;%s\&amp;quot;&amp;quot;, inherited); if (ngx_array_init(&amp;amp;cycle-&amp;gt;listening, cycle-&amp;gt;pool, 10, sizeof(ngx_listening_t)) != NGX_OK) { return NGX_ERROR; } for (p = inherited, v = p; *p; p++) { if (*p == &#39;:&#39; || *p == &#39;;&#39;) { s = ngx_atoi(v, p - v); if (s == NGX_ERROR) { ngx_log_error(NGX_LOG_EMERG, cycle-&amp;gt;log, 0, &amp;quot;invalid socket number \&amp;quot;%s\&amp;quot; in &amp;quot; NGINX_VAR &amp;quot; environment variable, ignoring the rest&amp;quot; &amp;quot; of the variable&amp;quot;, v); break; } v = p + 1; ls = ngx_array_push(&amp;amp;cycle-&amp;gt;listening); if (ls == NULL) { return NGX_ERROR; } ngx_memzero(ls, sizeof(ngx_listening_t)); ls-&amp;gt;fd = (ngx_socket_t) s; } } ngx_inherited = 1; return ngx_set_inherited_sockets(cycle); }  src/core/nginx.</description>
+    </item>
+    
+    <item>
+      <title>nginx日志切分方案</title>
+      <link>https://checkking.github.io/post/nginx/nginx2/</link>
+      <pubDate>Sat, 18 Feb 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/nginx/nginx2/</guid>
+      <description>nginx的日志切分问题一直是运维nginx时需要重点关注的。本文将简单说明下nginx支持的两种日志切分方式。
+定时任务切分 所谓的定时任务切分，是指通过定时任务（比如crontab)，发送信号给nginx，让其重新打开文件。该方法也是nginx官网上面比较推荐的,原文说明比较清楚，这里在说明下： 发送USR1 信号会让nginx主动重新打开日志文件，故操作如下：
+$ mv access.log access.log.0 $ kill -USR1 `cat master.nginx.pid` $ sleep 1 $ gzip access.log.0 # do something with access.log.0  总结 ：优点是思路较为简单，但效果明显，而且对error_log 同样适用；缺点是有外部依赖（比如 crontab)
+自切分 自切分是指让nginx自身实现日志切分功能，不依赖crontab等东西。 其主要原理是依赖access_log的强大功能&amp;mdash;- 可以用变量定义请求的log路径。 nginx的acess_log 功能非常强大，其完整指令说明如下，这里主要说明定义日志路径的功能；关于syslog还有gzip, buffer等特性，后续再说明。
+access_log指令Syntax: access_log path [format [buffer=size [flush=time]] [if=condition]]; access_log path format gzip[=level] [buffer=size] [flush=time] [if=condition]; access_log syslog:server=address[,parameter=value] [format [if=condition]]; access_log off;
+默认：access_log logs/access.log combined; Context: http, server, location, if in location, limit_except
+注意path部分是支持nignx变量的，这也就意味这我们只要通过配置正确的nginx变量，就可以实现小时等级别的日志自动拆分了。</description>
+    </item>
+    
+    <item>
+      <title>Nginx学习笔记(一)</title>
+      <link>https://checkking.github.io/post/nginx/nginx1/</link>
+      <pubDate>Mon, 13 Feb 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/nginx/nginx1/</guid>
+      <description>运行中的Nginx进程间的关系 在正式提供服务的产品环境下，部署nginx都是使用一个master进程来管理多个worker进程， 一般情况下，worker进程的数量与服务器上的CPU核心数相等。 每个worker进程都是繁忙的，他们真正提供互联网服务，master进程则很清闲，只负责监控管理 worker进程。 Nginx是支持单进程(master进程)提供服务的，那么为什么产品环境下要按照master-worker方式配置同时 启动多个进程呢？这样做的好处主要有以下两点： - 由于master进程不会对用户请求提供服务，只用于管理真正提供服务的worker进程，所以master进程可以是唯一的，它仅专注于自己的纯管理工作，为管理员提供命令行服务，包括诸如启动服务、停止服务、重载配置文件、平滑升级程序等。master进程需要拥有较大的权限，例如，通常会利用root用户启动master进程。worker进程的权限要小于或等于master进程，这样master进程才可以完全地管理worker进程。当任意一个worker进程出现错误从而导致coredump时，master进程会立刻启动新的worker进程继续服务。 - 多个worker进程处理互联网请求不但可以提高服务的健壮性（一个worker进程出错后，其他worker进程仍然可以正常提供服务），最重要的是，这样可以充分利用现在常见的SMP多核架构，从而实现微观上真正的多核并发处理。因此，用一个进程（master进程）来处理互联网请求肯定是不合适的。另外，为什么要把worker进程数量设置得与CPU核心数量一致呢？这正是Nginx与Apache服务器的不同之处。在Apache上每个进程在一个时刻只处理一个请求，因此，如果希望Web服务器拥有并发处理的请求数更多，就要把Apache的进程或线程数设置得更多，通常会达到一台服务器拥有几百个工作进程，这样大量的进程间切换将带来无谓的系统资源消耗。而Nginx则不然，一个worker进程可以同时处理的请求数只受限于内存大小，而且在架构设计上，不同的worker进程之间处理并发请求时几乎没有同步锁的限制，worker进程通常不会进入睡眠状态，因此，当Nginx上的进程数与CPU核心数相等时（最好每一个worker进程都绑定特定的CPU核心），进程间切换的代价是最小的。
+nginx配置相关 location模块中root和alias的区别 root方式的配置:
+location /download/ { root /opt/web/html/; }  如果请求的URI是/download/index/test.html，那么web服务器将会返回服务器上/otp/web/html/download/index/test.html文件的内容。
+alias方式的配置:
+location /conf { alias /usr/local/nginx/conf; }  在URI向实际文件路径的映射过程中，已经把location后配置的/conf这部分字符串丢弃，因此，/conf/nginx.conf请求将根据alias path映射为 /usr/local/nginx/conf/nginx.conf (conf -&amp;gt; /usr/local/nginx/conf) root可以放置到http, server, location或if块中，而alias只能放置在location块中。 alias后面还可以添加正则表达式，例如：
+location .~ ^/test/(\w+)\.(\w+)$ { alias /usr/local/nginx/$2/$1.$2; }  这样，请求在访问/test/nginx.conf时，nginx会返回/usr/local/nginx/conf/nginx.conf文件中的内容。
+try_files 语法： try_files path1 [path2] uri; 配置块： server、location try_files后要跟若干路径，如path1 path2&amp;hellip;，而且最后必须要有uri参数，意义如下：尝试按照顺序访问每一个path,如果可以有效地读取，就直接返回这个path对应的文件结束请求，否则继续向下访问。如果所有path都找不到有效的文件，就重定向到最后的参数uri上。如：
+try_files /system/maintenance.html $uri $uri/index.html $uri.html @other; location @other { proxy_pass http://backend; }  文件操作的优化  sendfile 系统调用 语法: sendfile on|off;  默认：sendfile off;  配置快： http、server、location  可以启用Linux上的sendfile系统调用来发送文件，它减少了内核态与用户态之间的两次内存复制，这样就会从 磁盘中读取文件后直接在内核态发送到网卡设备，提高了发送文件的效率。 AIO系统调用 此配置项表示是否在FreeBSD或Linux上启用内核级别的异步文件I/O功能。注意，它与sendfile功能是互斥的。 directio 语法：directio size|off; 默认：directio off; 配置快： http、server、location  此配置项在FreeBSD和Linux系统上使用O_DIRECT选项去读取文件，缓冲区大小为size, 通常对大文件的读取速度有优化作用.</description>
+    </item>
+    
+    <item>
+      <title>nginx location &amp; rewrite 配置总结</title>
+      <link>https://checkking.github.io/post/nginx/nginx3/</link>
+      <pubDate>Thu, 09 Feb 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/nginx/nginx3/</guid>
+      <description>location正则写法 一个示例：
+location = / { # 精确匹配 / ，主机名后面不能带任何字符串 [ configuration A ] } location / { # 因为所有的地址都以 / 开头，所以这条规则将匹配到所有请求 # 但是正则和最长字符串会优先匹配 [ configuration B ] } location /documents/ { # 匹配任何以 /documents/ 开头的地址，匹配符合以后，还要继续往下搜索 # 只有后面的正则表达式没有匹配到时，这一条才会采用这一条 [ configuration C ] } location ~ /documents/Abc { # 匹配任何以 /documents/Abc 开头的地址，匹配符合以后，还要继续往下搜索 # 只有后面的正则表达式没有匹配到时，这一条才会采用这一条 [ configuration CC ] } location ^~ /images/ { # 匹配任何以 /images/ 开头的地址，匹配符合以后，停止往下搜索正则，采用这一条。 [ configuration D ] } location ~* \.</description>
+    </item>
+    
+    <item>
+      <title>信号量处理总结</title>
+      <link>https://checkking.github.io/post/cs/singals/</link>
+      <pubDate>Thu, 09 Feb 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/singals/</guid>
+      <description>背景 最近在做一个实时日志监控系统，系统架构是filebeat+logstash+twisted, 其中filebeat用来监控日志文件的新增变动，logstash格式化日志，twisted作为server，接收logstash的输入, 实时计算ctr， server的统计数据要每小时持久化一次，也就是要写进mysql数据库中。但是在写入Mysql的过程中不影响server接收请求处理。因此想到的方案是在进入下一个小时的这一时刻fork一个进程，然后再子进程中 进行写入mysql操作。这种方案和redis写入快照的方案一样，因为twisted和redis都是基于事件的单进程单线程服务器模型, 利用fork的copy on write，保证在子进程中数据和父进程不会混乱。这种方案是work的。 但是twisted中用信号量有一点小问题，就是不能用SIGCHLD这个信号量来通知父进程子进程退出了, 最终无奈让子进程在退出前向父进程发送SIGUSR1自定义信号量, 父进程在收到这个信号量时改变状态参数。 之前对信号量处理上有些模糊的地方，想通过本篇博客总结一下。
+什么是信号量 Unix信号是Unix系统的一种软件形式异常，一个信号就是一条消息，它通知进程系统中发生了一个某种类型的事件。在linux下输入&amp;rdquo;man 7 signal&amp;rdquo;就能得到Linux系统上支持的30中不同类型的信号。
+   Signal Value Action Comment     SIGHUP 1 Term Hangup detected on controlling terminal or death of controlling process   SIGINT 2 Term Interrupt from keyboard   SIGQUIT 3 Core Quit from keyboard   SIGILL 1 Term Hangup detected on controlling terminal or death of controlling process   SIGINT 4 Core Illegal Instruction   SIGABRT 6 Core Abort signal from abort(3)   SIGFPE 8 Core Floating point exception   SIGKILL 9 Term Kill signal   SIGSEGV 11 Core Invalid memory reference   SIGPIPE 13 Term Broken pipe: write to pipe with noreaders   SIGALRM 14 Term Timer signal from alarm(2)   SIGTERM 15 Term Termination signal   SIGUSR1 30,10,16 Term User-defined signal 1   SIGUSR2 31,12,17 Term User-defined signal 2   SIGCHLD 20,17,18 Ign Child stopped or terminated   SIGCONT 19,18,25 Cont Continue if stopped   SIGSTOP 17,19,23 Stop Stop process   SIGTSTP 18,20,24 Stop Stop typed at terminal   SIGTTIN 21,21,26 Stop Terminal input for background process   SIGTTOU 22,22,27 Stop Terminal output for background process    还有其他的没有列出来，可以自行查阅。信号提供了一种机制，通知用户进程发生了这些异常。 比如一个进程试图除以0，那么内核就发送给它一个SIGFPE信号。如果进程进行非法存储器引用，内核就发送一条 SIGSEGV信号， 当一个子进程终止或停止时，内核发送一个SIGCHLD信号给父进程。</description>
+    </item>
+    
+    <item>
+      <title>从wc -l说起---如何统计大文件的行数</title>
+      <link>https://checkking.github.io/post/arch/how_compute_big_file_lines/</link>
+      <pubDate>Fri, 13 Jan 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/arch/how_compute_big_file_lines/</guid>
+      <description>问题引入 昨天工作上有一个任务根据nginx日志做一些数据统计。由于日志文件很大，而且不断增大中。如果我要统计一小时以内的日志，这时候就没必要对所有日志都扫一遍。我的初步思路是先用wc -l统计一下日志行数，然后根据当前时间估算出平均每分钟产生了多少条日志。这样就可以估算一小时以内的日志条数了。然后用tail -n就可以了。 但是发现wc -l其实也是有点慢的。从gnu上把bash wc实现代码(http://mirrors.ustc.edu.cn/gnu/coreutils/coreutils-8.9.tar.gz)wget 下来看了。统计单个文件的内部实现是调用read(int filedes, char *buf, unsigned nbytes) 先把内容读入buffer，然后按字节统计，在实现上做了一些细节优化，性能还是很好的。 但是不管怎么样还是要对所有字节都扫一遍。有没有更好的方式呢？
+粗略统计文件行数 unix中struct state记录文件所有信息，但是没有文件行数，因此不能直接get到。
+struct stat { dev_t st_dev; /* ID of device containing file */ ino_t st_ino; /* inode number */ mode_t st_mode; /* file type and mode */ nlink_t st_nlink; /* number of hard links */ uid_t st_uid; /* user ID of owner */ gid_t st_gid; /* group ID of owner */ dev_t st_rdev; /* device ID (if special file) */ off_t st_size; /* total size, in bytes */ blksize_t st_blksize; /* blocksize for filesystem I/O */ blkcnt_t st_blocks; /* number of 512B blocks allocated */ /* Since Linux 2.</description>
+    </item>
     
     <item>
       <title>C&#43;&#43;前向声明</title>

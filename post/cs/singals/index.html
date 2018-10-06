@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"  lang="en-us">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<title>信号量处理总结 | My New Hugo Site</title>
+
+<meta property='og:title' content='信号量处理总结 - My New Hugo Site'>
+<meta property='og:description' content='背景 最近在做一个实时日志监控系统，系统架构是filebeat&#43;logstash&#43;twisted, 其中filebeat用来监控日志文件的新增变动，logstash格式化日志，twisted作为server，接收logstash的输入, 实时计算ctr， server的统计数据要每小时持久化一次，也就是要写进mysql数据库中。但是在写入Mysql的过程中不影响server接收请求处理。因此想到的方案是在进入下一个小时的这一时刻fork一个进程，然后再子进程中 进行写入mysql操作。这种方案和redis写入快照的方案一样，因为twisted和redis都是基于事件的单进程单线程服务器模型, 利用fork的copy on write，保证在子进程中数据和父进程不会混乱。这种方案是work的。 但是twisted中用信号量有一点小问题，就是不能用SIGCHLD这个信号量来通知父进程子进程退出了, 最终无奈让子进程在退出前向父进程发送SIGUSR1自定义信号量, 父进程在收到这个信号量时改变状态参数。 之前对信号量处理上有些模糊的地方，想通过本篇博客总结一下。
+什么是信号量 Unix信号是Unix系统的一种软件形式异常，一个信号就是一条消息，它通知进程系统中发生了一个某种类型的事件。在linux下输入&rdquo;man 7 signal&rdquo;就能得到Linux系统上支持的30中不同类型的信号。
+   Signal Value Action Comment     SIGHUP 1 Term Hangup detected on controlling terminal or death of controlling process   SIGINT 2 Term Interrupt from keyboard   SIGQUIT 3 Core Quit from keyboard   SIGILL 1 Term Hangup detected on controlling terminal or death of controlling process   SIGINT 4 Core Illegal Instruction   SIGABRT 6 Core Abort signal from abort(3)   SIGFPE 8 Core Floating point exception   SIGKILL 9 Term Kill signal   SIGSEGV 11 Core Invalid memory reference   SIGPIPE 13 Term Broken pipe: write to pipe with noreaders   SIGALRM 14 Term Timer signal from alarm(2)   SIGTERM 15 Term Termination signal   SIGUSR1 30,10,16 Term User-defined signal 1   SIGUSR2 31,12,17 Term User-defined signal 2   SIGCHLD 20,17,18 Ign Child stopped or terminated   SIGCONT 19,18,25 Cont Continue if stopped   SIGSTOP 17,19,23 Stop Stop process   SIGTSTP 18,20,24 Stop Stop typed at terminal   SIGTTIN 21,21,26 Stop Terminal input for background process   SIGTTOU 22,22,27 Stop Terminal output for background process    还有其他的没有列出来，可以自行查阅。信号提供了一种机制，通知用户进程发生了这些异常。 比如一个进程试图除以0，那么内核就发送给它一个SIGFPE信号。如果进程进行非法存储器引用，内核就发送一条 SIGSEGV信号， 当一个子进程终止或停止时，内核发送一个SIGCHLD信号给父进程。'>
+<meta property='og:url' content='https://checkking.github.io/post/cs/singals/'>
+<meta property='og:site_name' content='My New Hugo Site'>
+<meta property='og:type' content='article'><meta property='og:image' content='https://www.gravatar.com/avatar/7f737ec3d15ee739b2bec7984b64a268?s=256'><meta property='article:section' content='Post'><meta property='article:published_time' content='2017-02-09T21:07:16&#43;08:00'/><meta property='article:modified_time' content='2017-02-09T21:07:16&#43;08:00'/><meta name='twitter:card' content='summary'><meta name='twitter:site' content='@'><meta name='twitter:creator' content='@'>
+
+<link href="https://checkking.github.io/index.xml" rel="alternate" type="application/rss+xml" title="My New Hugo Site" />
+
+<link rel="stylesheet" href="/css/style.css"/><link rel='stylesheet' href='https://checkking.github.io/css/custom.css'><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+<meta name="msapplication-TileColor" content="#da532c">
+<meta name="theme-color" content="#ffffff">
+</head>
+<body>
+<section class="section">
+  <div class="container">
+    <nav class="nav">
+      <div class="nav-left">
+        <a class="nav-item" href="https://checkking.github.io/"><h1 class="title is-4">My New Hugo Site</h1></a>
+      </div>
+      <div class="nav-right">
+        <nav class="nav-item level is-mobile"><a class="level-item" aria-label="email" href='mailto:checkking@foxmail.com' target='_blank' rel='noopener'>
+            <span class="icon">
+              <i class><svg viewbox='0 0 24 24' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' aria-hidden='true'>
+    
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+    <polyline points="22,6 12,13 2,6"/>
+    
+  </svg></i>
+            </span>
+          </a><a class="level-item" aria-label="github" href='https://github.com/checkking' target='_blank' rel='noopener'>
+            <span class="icon">
+              <i class><svg viewbox='0 0 24 24' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' aria-hidden='true'>
+    
+    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+    
+  </svg></i>
+            </span>
+          </a><a class="level-item" aria-label="rss" href='/index.xml' target='_blank' rel='noopener'>
+            <span class="icon">
+              <i class><svg viewbox='0 0 24 24' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' aria-hidden='true'>
+    
+    <path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle>
+    
+  </svg></i>
+            </span>
+          </a></nav>
+      </div>
+    </nav>
+
+    <nav class="nav">
+      
+
+      
+    </nav>
+
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="subtitle tags is-6 is-pulled-right">
+      
+    </div>
+    <h2 class="subtitle is-6">February 9, 2017</h2>
+    <h1 class="title">信号量处理总结</h1>
+    
+    <div class="content">
+      
+
+<h4 id="背景">背景</h4>
+
+<p>最近在做一个实时日志监控系统，系统架构是filebeat+logstash+twisted, 其中filebeat用来监控日志文件的新增变动，logstash格式化日志，twisted作为server，接收logstash的输入, 实时计算ctr，
+server的统计数据要每小时持久化一次，也就是要写进mysql数据库中。但是在写入Mysql的过程中不影响server接收请求处理。因此想到的方案是在进入下一个小时的这一时刻fork一个进程，然后再子进程中
+进行写入mysql操作。这种方案和redis写入快照的方案一样，因为twisted和redis都是基于事件的单进程单线程服务器模型, 利用fork的copy on write，保证在子进程中数据和父进程不会混乱。这种方案是work的。
+但是twisted中用信号量有一点小问题，就是不能用SIGCHLD这个信号量来通知父进程子进程退出了, 最终无奈让子进程在退出前向父进程发送SIGUSR1自定义信号量, 父进程在收到这个信号量时改变状态参数。
+之前对信号量处理上有些模糊的地方，想通过本篇博客总结一下。</p>
+
+<h4 id="什么是信号量">什么是信号量</h4>
+
+<p>Unix信号是Unix系统的一种软件形式异常，一个信号就是一条消息，它通知进程系统中发生了一个某种类型的事件。在linux下输入&rdquo;man 7 signal&rdquo;就能得到Linux系统上支持的30中不同类型的信号。</p>
+
+<table>
+<thead>
+<tr>
+<th>Signal</th>
+<th>Value</th>
+<th>Action</th>
+<th>Comment</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>SIGHUP</td>
+<td>1</td>
+<td>Term</td>
+<td>Hangup detected on controlling terminal or death of controlling process</td>
+</tr>
+
+<tr>
+<td>SIGINT</td>
+<td>2</td>
+<td>Term</td>
+<td>Interrupt from keyboard</td>
+</tr>
+
+<tr>
+<td>SIGQUIT</td>
+<td>3</td>
+<td>Core</td>
+<td>Quit from keyboard</td>
+</tr>
+
+<tr>
+<td>SIGILL</td>
+<td>1</td>
+<td>Term</td>
+<td>Hangup detected on controlling terminal or death of controlling process</td>
+</tr>
+
+<tr>
+<td>SIGINT</td>
+<td>4</td>
+<td>Core</td>
+<td>Illegal Instruction</td>
+</tr>
+
+<tr>
+<td>SIGABRT</td>
+<td>6</td>
+<td>Core</td>
+<td>Abort signal from abort(3)</td>
+</tr>
+
+<tr>
+<td>SIGFPE</td>
+<td>8</td>
+<td>Core</td>
+<td>Floating point exception</td>
+</tr>
+
+<tr>
+<td>SIGKILL</td>
+<td>9</td>
+<td>Term</td>
+<td>Kill signal</td>
+</tr>
+
+<tr>
+<td>SIGSEGV</td>
+<td>11</td>
+<td>Core</td>
+<td>Invalid memory reference</td>
+</tr>
+
+<tr>
+<td>SIGPIPE</td>
+<td>13</td>
+<td>Term</td>
+<td>Broken pipe: write to pipe with noreaders</td>
+</tr>
+
+<tr>
+<td>SIGALRM</td>
+<td>14</td>
+<td>Term</td>
+<td>Timer signal from alarm(2)</td>
+</tr>
+
+<tr>
+<td>SIGTERM</td>
+<td>15</td>
+<td>Term</td>
+<td>Termination signal</td>
+</tr>
+
+<tr>
+<td>SIGUSR1</td>
+<td>30,10,16</td>
+<td>Term</td>
+<td>User-defined signal 1</td>
+</tr>
+
+<tr>
+<td>SIGUSR2</td>
+<td>31,12,17</td>
+<td>Term</td>
+<td>User-defined signal 2</td>
+</tr>
+
+<tr>
+<td>SIGCHLD</td>
+<td>20,17,18</td>
+<td>Ign</td>
+<td>Child stopped or terminated</td>
+</tr>
+
+<tr>
+<td>SIGCONT</td>
+<td>19,18,25</td>
+<td>Cont</td>
+<td>Continue if stopped</td>
+</tr>
+
+<tr>
+<td>SIGSTOP</td>
+<td>17,19,23</td>
+<td>Stop</td>
+<td>Stop process</td>
+</tr>
+
+<tr>
+<td>SIGTSTP</td>
+<td>18,20,24</td>
+<td>Stop</td>
+<td>Stop typed at terminal</td>
+</tr>
+
+<tr>
+<td>SIGTTIN</td>
+<td>21,21,26</td>
+<td>Stop</td>
+<td>Terminal input for background process</td>
+</tr>
+
+<tr>
+<td>SIGTTOU</td>
+<td>22,22,27</td>
+<td>Stop</td>
+<td>Terminal output for background process</td>
+</tr>
+</tbody>
+</table>
+
+<p>还有其他的没有列出来，可以自行查阅。信号提供了一种机制，通知用户进程发生了这些异常。 比如一个进程试图除以0，那么内核就发送给它一个SIGFPE信号。如果进程进行非法存储器引用，内核就发送一条
+SIGSEGV信号， 当一个子进程终止或停止时，内核发送一个SIGCHLD信号给父进程。</p>
+
+<h4 id="信号相关的操作函数">信号相关的操作函数</h4>
+
+<h5 id="发送信号">发送信号</h5>
+
+<ol>
+<li>kill和raise函数</li>
+</ol>
+
+<p>kill函数将信号发送给进程或进程组。raise函数则允许进程向自身发送信号。</p>
+
+<pre><code class="language-c">#include &lt;signal.h&gt;
+int kill(pid_t pid, int signo);
+int raise(int signo);
+</code></pre>
+
+<p>两个函数返回值：成功0，失败-1</p>
+
+<p>kill 的pid参数有4种不同的情况：
+ - pid &gt; 0  将改信号发送给进程ID为pid的进程
+ - pid == 0 将该信号发送给与发送进程同属一个进程组的所有进程, 不包括系统进程集.
+ - pid &lt; 0  将信号发送给其进程组ID等于pid的绝对值, 而且发送进程具有向其发送信号的权限.
+ - pid == -1    将信号发送给有权限发送信号的所有进程。</p>
+
+<p>编号为0的信号定义为空信号， 如果参数是0, kill不发送信号。如果pid不存在，则kill返回-1。</p>
+
+<ol>
+<li>alarm和pause函数</li>
+</ol>
+
+<pre><code class="language-c">#include &lt;signal.h&gt;
+unsigned int alarm(unsigned int seconds);
+</code></pre>
+
+<p>返回值：0或以前设置的闹钟时间的余留秒数</p>
+
+<p>使用alarm函数可以设置一个计时器，在将来某个指定的时间该计时器会超时。当计时器超时，产生SIGALRM信号。
+每个进程只能有一个闹钟时钟。如果在调用alarm时，以前已为改进程设置过闹钟时钟，而且他还没超时，则将该
+闹钟时钟的余留值作为本次alarm函数调用的值返回。以前登记的闹钟时钟则被新替换。</p>
+
+<pre><code class="language-c">#include &lt;signal.h&gt;
+int pause(void);
+</code></pre>
+
+<p>返回值：-1, 并将errno设置为EINTR</p>
+
+<p>只有执行了一个信号处理程序并返回时，pause才返回。在这种情况,pause返回-1, 并将errno设置EINTR. 通过pause和
+alarm函数可以简单的实现sleep函数，但是有些点需要注意，具体请阅读《Unix环境高级编程》第10.10章节。</p>
+
+<h5 id="接收信号">接收信号</h5>
+
+<pre><code class="language-c">#include &lt;signal.h&gt;
+
+typedef void (*sighandler_t)(int);
+sighandler_t signal(int signum, sighandler_t handler);
+</code></pre>
+
+<p>进程可以通过使用signal函数修改和信号相关联的默认行为。唯一例外是SIGSTOP和SIGKILL，它们的默认行为不能被修改的。
+signal函数可以通过下列三种方法之一来改变和信号signum相关联的行为：
+ - 如果handler是SIG_IGN， 那么忽略类型为signum的信号。
+ - 如果handler是sig_DEF, 那么类型为signum的信号恢复默认行为.
+ - 否则，handler就是用户定义的函数的地址，这个函数称为信号处理程序。</p>
+
+<h5 id="信号处理问题">信号处理问题</h5>
+
+<p>对于只捕获一个信号并终止的程序来说，信号处理是简单直接的。然而，当一个程序要捕获多个信号时，一些细微的问题就产生了。
+- <strong>待处理信号被阻塞</strong> Unix信号处理程序通常会阻塞当前处理程序正在处理的类型的待处理信号。比如，假设一个进程捕获了
+一个SIGINT信号，并且当前正在运行它的SIGINT处理程序。如果另一个SIGINT信号传递到整个进程，那么这个SIGINT将变成待处理的，
+但是不会被接收，直到处理程序返回。
+- <strong>待处理信号不会排队等待</strong> 任意类型至多只有一个待处理信号。因此，如果有两个类型为k的信号传送到一个目的进程，而由于
+目前的进程当前正在执行信号k的处理程序，所以信号k是阻塞的，那么第二个信号就被简单地丢弃，它不会排队等待。
+- <strong>系统调用可以被中断</strong> 像read、wait和accept这样的系统调用。在某些系统中，当处理程序捕获到一个信号时，被中断的慢速系统调用
+在信号处理程序返回时不再继续，而是立即返回给用户一个错误条件，并将errno设置为EINTR.
+- <strong>同步流以避免讨厌的并发错误</strong></p>
+
+<p>看一个csapp书中第8.5.7章节的一个例子：</p>
+
+<pre><code class="language-c">void handler(int sig) {
+    pid_t pid;
+    while ((pid = waitpid(-1, NULL, 0)) &gt; 0)
+        deletejob(pid);
+    if (errno != ECHILD)
+        unix_error(&quot;waitpid error&quot;);
+}
+
+int main(int argc, char **argv) {
+    int pid;
+
+    Signal(SIGCHLD, handler);
+
+    initjobs(); // initialize the job list
+
+    while (1) {
+        // child process
+        if ((pid = fork()) == 0) {
+            Execve(&quot;/bin/date&quot;, argv, NULL);
+        }
+
+        // parent process
+        addjob(pid);
+    }
+    exit(0);
+}
+</code></pre>
+
+<p><strong>异常情况</strong>:</p>
+
+<ol>
+<li>父进程执行fork函数，内核调度新创建的子进程运行，而不是父进程.</li>
+<li>在父进程能够再次执行运行前，子进程终止，并且变成一个僵死进程，使得内核传递一个SIGCHLD信号给父进程。</li>
+<li>后来，当父进程再次变成可运行但又在它执行前，内核注意到待处理的SIGCHLD信号，并调用信号处理函数处理这个信号。</li>
+<li>处理程序回收终止的子进程，并调用deletejob， 这个函数什么也不做，因为父进程还没有把孩子进程添加到列表。</li>
+<li>在处理程序运行完毕，内核运行父进程，父进程从fork返回，通过调用addjob错误地把(已经不存在)子进程添加到作业列表中。</li>
+</ol>
+
+<p>这是一个<strong>竞争(race)</strong>的经典同步错误的示例。</p>
+
+<p><strong>怎么解决</strong>:</p>
+
+<p>通过在调用fork之前，阻塞SIGCHLD信号，然后再我们调用了addjob之后，就取消阻塞这个信号，我们保证了在子进程被添加到
+作业列表中之后回收孩子进程。 注意，子进程继承了他们父进程的被阻塞集合，所以我们必须在调用execve之前，小心地解除子进程
+中阻塞的SIGCHLD信号。</p>
+
+<pre><code class="language-c">void handler(int sig) {
+    pid_t pid;
+    while ((pid = waitpid(-1, NULL, 0)) &gt; 0)
+        deletejob(pid);
+    if (errno != ECHILD)
+        unix_error(&quot;waitpid error&quot;);
+}
+
+int main(int argc, char **argv) {
+    int pid;
+    sigset_t mask;
+
+    Signal(SIGCHLD, handler);
+
+    initjobs(); // initialize the job list
+
+    while (1) {
+        Sigemptyset(&amp;mask);
+        Sigaddset(&amp;mask, SIGCHLD);
+        Sigprocmask(SIG_BLOCK, &amp;mask, NULL);
+        // child process
+        if ((pid = fork()) == 0) {
+            Sigprocmask(SIG_UNBLOCK, &amp;mask, NULL);
+            Execve(&quot;/bin/date&quot;, argv, NULL);
+        }
+
+        // parent process
+        addjob(pid);
+        Sigprocmask(SIG_UNBLOCK, &amp;mask, NULL);
+    }
+    exit(0);
+}
+</code></pre>
+
+<h5 id="fork-exec对子进程继承父进程信号处理机制的影响">fork exec对子进程继承父进程信号处理机制的影响</h5>
+
+<p>当一个进程调用fork时，因为子进程在开始时复制父进程的存储映像，信号捕捉函数的地址在子进程中是有意义的，所以子进程继承父进程的信号处理方式。
+特殊的是exec，因为exec运行新的程序后会覆盖从父进程继承来的存储映像，那么信号捕捉函数在新程序中已无意义，所以exec会将原先设置为要捕捉的信号都更改为默认动作。</p>
+
+<ul>
+<li>fork后子进程会继承父进程的信号屏蔽字，再继续exec后仍会继承这个信号屏蔽字。同样地，直接调用system后子进程也会继承父进程的信号屏蔽字。</li>
+<li>fork后子进程会继承父进程的信号处理设置，再继续exec后就不会继承这个信号处理设置了。</li>
+<li>fork后子进程会继承父进程的控制终端，且子进程在父进程的进程组和会话组中；再继续exec后仍会继承这个控制终端，仍在父进程的进程组和会话组中。同样地，调用system后子进程会继承父进程的控制终端，且子进程在父进程的进程组和会话组中。</li>
+<li>Ctrl+c产生的SIGINT信号会发送给父进程、fork后的子进程以及继续exec的子进程；同样地，也会发给system调用运行的子进程。</li>
+</ul>
+
+<p>当一个进程调用fork时，因为子进程在开始时复制父进程的存储映像，信号捕捉函数的地址在子进程中是有意义的，所以子进程继承父进程的信号处理方式。
+特殊的是exec，因为exec运行新的程序后会覆盖从父进程继承来的存储映像，那么信号捕捉函数在新程序中已无意义，所以exec会将原先设置为要捕捉的信号都更改为默认动作。</p>
+
+<h5 id="参考">参考</h5>
+
+<ol>
+<li>《unix环境高级编程》</li>
+<li>《深入理解计算机系统》</li>
+</ol>
+
+      
+      <div class="related">
+</div>
+      
+    </div>
+    
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <aside><div id="disqus_thread"></div></aside>
+    <script type="text/javascript">
+      var disqus_shortname = 'checkking';
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container has-text-centered">
+    <p>&copy; <a href="https://github.com/checkking">checkking</a> 2018</p>
+    
+      <p>Powered by <a href="https://gohugo.io/">Hugo</a> &amp; <a href="https://github.com/ribice/kiss">Kiss</a>.</p>
+    
+  </div>
+</section>
+
+<script type="text/javascript">
+  var _paq = _paq || [];
+  _paq.push(['trackPageView']);
+  _paq.push(['enableLinkTracking']);
+  (function() {
+    var u="\/\/matomo.example.com\/";
+    _paq.push(['setTrackerUrl', u+'piwik.php']);
+    _paq.push(['setSiteId', '1']);
+    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+    g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.js'; s.parentNode.insertBefore(g,s);
+  })();
+</script>
+<noscript>
+  <img src="//matomo.example.com/piwik.php?idsite=1&amp;rec=1" style="border:0" alt="" />
+</noscript>
+
+
+</body>
+</html>
+

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"  lang="en-us">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<title>nginx源码阅读点滴 | My New Hugo Site</title>
+
+<meta property='og:title' content='nginx源码阅读点滴 - My New Hugo Site'>
+<meta property='og:description' content='ngx_add_inherited_sockets 这个函数的目的是为了实现nginx平滑升级时获取原来的监听fd, 通过环境变量NGINX完成socket的继承，继承来的socket将会放到init_cycle的listening数组中。在NGINX环境变量中，每个socket中间用冒号或分号隔开。完成继承同时设置全局变量ngx_inherited为1。 相关代码：
+ src/core/nginx.c
+static ngx_int_t ngx_add_inherited_sockets(ngx_cycle_t *cycle) { u_char *p, *v, *inherited; ngx_int_t s; ngx_listening_t *ls; inherited = (u_char *) getenv(NGINX_VAR); if (inherited == NULL) { return NGX_OK; } ngx_log_error(NGX_LOG_NOTICE, cycle-&gt;log, 0, &quot;using inherited sockets from \&quot;%s\&quot;&quot;, inherited); if (ngx_array_init(&amp;cycle-&gt;listening, cycle-&gt;pool, 10, sizeof(ngx_listening_t)) != NGX_OK) { return NGX_ERROR; } for (p = inherited, v = p; *p; p&#43;&#43;) { if (*p == &#39;:&#39; || *p == &#39;;&#39;) { s = ngx_atoi(v, p - v); if (s == NGX_ERROR) { ngx_log_error(NGX_LOG_EMERG, cycle-&gt;log, 0, &quot;invalid socket number \&quot;%s\&quot; in &quot; NGINX_VAR &quot; environment variable, ignoring the rest&quot; &quot; of the variable&quot;, v); break; } v = p &#43; 1; ls = ngx_array_push(&amp;cycle-&gt;listening); if (ls == NULL) { return NGX_ERROR; } ngx_memzero(ls, sizeof(ngx_listening_t)); ls-&gt;fd = (ngx_socket_t) s; } } ngx_inherited = 1; return ngx_set_inherited_sockets(cycle); }  src/core/nginx.'>
+<meta property='og:url' content='https://checkking.github.io/post/nginx/nginx4/'>
+<meta property='og:site_name' content='My New Hugo Site'>
+<meta property='og:type' content='article'><meta property='og:image' content='https://www.gravatar.com/avatar/7f737ec3d15ee739b2bec7984b64a268?s=256'><meta property='article:section' content='Post'><meta property='article:published_time' content='2017-02-24T21:07:16&#43;08:00'/><meta property='article:modified_time' content='2017-02-24T21:07:16&#43;08:00'/><meta name='twitter:card' content='summary'><meta name='twitter:site' content='@'><meta name='twitter:creator' content='@'>
+
+<link href="https://checkking.github.io/index.xml" rel="alternate" type="application/rss+xml" title="My New Hugo Site" />
+
+<link rel="stylesheet" href="/css/style.css"/><link rel='stylesheet' href='https://checkking.github.io/css/custom.css'><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+<meta name="msapplication-TileColor" content="#da532c">
+<meta name="theme-color" content="#ffffff">
+</head>
+<body>
+<section class="section">
+  <div class="container">
+    <nav class="nav">
+      <div class="nav-left">
+        <a class="nav-item" href="https://checkking.github.io/"><h1 class="title is-4">My New Hugo Site</h1></a>
+      </div>
+      <div class="nav-right">
+        <nav class="nav-item level is-mobile"><a class="level-item" aria-label="email" href='mailto:checkking@foxmail.com' target='_blank' rel='noopener'>
+            <span class="icon">
+              <i class><svg viewbox='0 0 24 24' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' aria-hidden='true'>
+    
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+    <polyline points="22,6 12,13 2,6"/>
+    
+  </svg></i>
+            </span>
+          </a><a class="level-item" aria-label="github" href='https://github.com/checkking' target='_blank' rel='noopener'>
+            <span class="icon">
+              <i class><svg viewbox='0 0 24 24' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' aria-hidden='true'>
+    
+    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+    
+  </svg></i>
+            </span>
+          </a><a class="level-item" aria-label="rss" href='/index.xml' target='_blank' rel='noopener'>
+            <span class="icon">
+              <i class><svg viewbox='0 0 24 24' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' aria-hidden='true'>
+    
+    <path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle>
+    
+  </svg></i>
+            </span>
+          </a></nav>
+      </div>
+    </nav>
+
+    <nav class="nav">
+      
+
+      
+    </nav>
+
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="subtitle tags is-6 is-pulled-right">
+      
+    </div>
+    <h2 class="subtitle is-6">February 24, 2017</h2>
+    <h1 class="title">nginx源码阅读点滴</h1>
+    
+    <div class="content">
+      
+
+<h4 id="ngx-add-inherited-sockets">ngx_add_inherited_sockets</h4>
+
+<p>这个函数的目的是为了实现nginx平滑升级时获取原来的监听fd, 通过环境变量NGINX完成socket的继承，继承来的socket将会放到init_cycle的listening数组中。在NGINX环境变量中，每个socket中间用冒号或分号隔开。完成继承同时设置全局变量ngx_inherited为1。
+相关代码：</p>
+
+<ul>
+<li><p>src/core/nginx.c</p>
+
+<pre><code class="language-c">static ngx_int_t
+ngx_add_inherited_sockets(ngx_cycle_t *cycle)
+{
+u_char           *p, *v, *inherited;
+ngx_int_t         s;
+ngx_listening_t  *ls;
+
+inherited = (u_char *) getenv(NGINX_VAR);
+
+if (inherited == NULL) {
+    return NGX_OK;
+}
+
+ngx_log_error(NGX_LOG_NOTICE, cycle-&gt;log, 0,
+              &quot;using inherited sockets from \&quot;%s\&quot;&quot;, inherited);
+
+if (ngx_array_init(&amp;cycle-&gt;listening, cycle-&gt;pool, 10,
+                   sizeof(ngx_listening_t))
+    != NGX_OK)
+{
+    return NGX_ERROR;
+}
+
+for (p = inherited, v = p; *p; p++) {
+    if (*p == ':' || *p == ';') {
+        s = ngx_atoi(v, p - v);
+        if (s == NGX_ERROR) {
+            ngx_log_error(NGX_LOG_EMERG, cycle-&gt;log, 0,
+                          &quot;invalid socket number \&quot;%s\&quot; in &quot; NGINX_VAR
+                          &quot; environment variable, ignoring the rest&quot;
+                          &quot; of the variable&quot;, v);
+            break;
+        }
+
+        v = p + 1;
+
+        ls = ngx_array_push(&amp;cycle-&gt;listening);
+        if (ls == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_memzero(ls, sizeof(ngx_listening_t));
+
+        ls-&gt;fd = (ngx_socket_t) s;
+    }
+}
+
+ngx_inherited = 1;
+
+return ngx_set_inherited_sockets(cycle);
+}
+</code></pre></li>
+
+<li><p>src/core/nginx.c:ngx_exec_new_binary</p>
+
+<pre><code class="language-c">p = ngx_cpymem(var, NGINX_VAR &quot;=&quot;, sizeof(NGINX_VAR));
+ls = cycle-&gt;listening.elts;
+for (i = 0; i &lt; cycle-&gt;listening.nelts; i++) {
+p = ngx_sprintf(p, &quot;%ud;&quot;, ls[i].fd);
+}
+*p = '\0';
+env[n++] = var;
+</code></pre></li>
+</ul>
+
+      
+      <div class="related">
+</div>
+      
+    </div>
+    
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <aside><div id="disqus_thread"></div></aside>
+    <script type="text/javascript">
+      var disqus_shortname = 'checkking';
+      (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container has-text-centered">
+    <p>&copy; <a href="https://github.com/checkking">checkking</a> 2018</p>
+    
+      <p>Powered by <a href="https://gohugo.io/">Hugo</a> &amp; <a href="https://github.com/ribice/kiss">Kiss</a>.</p>
+    
+  </div>
+</section>
+
+<script type="text/javascript">
+  var _paq = _paq || [];
+  _paq.push(['trackPageView']);
+  _paq.push(['enableLinkTracking']);
+  (function() {
+    var u="\/\/matomo.example.com\/";
+    _paq.push(['setTrackerUrl', u+'piwik.php']);
+    _paq.push(['setSiteId', '1']);
+    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+    g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.js'; s.parentNode.insertBefore(g,s);
+  })();
+</script>
+<noscript>
+  <img src="//matomo.example.com/piwik.php?idsite=1&amp;rec=1" style="border:0" alt="" />
+</noscript>
+
+
+</body>
+</html>
+
