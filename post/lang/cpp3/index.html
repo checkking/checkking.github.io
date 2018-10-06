@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="generator" content="Hugo 0.49" />
+  <meta name="author" content="Check King">
+
+  
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Merriweather:400,700%7cOpen&#43;Sans:400,400italic,700%7cRoboto&#43;Mono%25!%28EXTRA%20*hugolib.PageOutput=Page%28/post/lang/cpp3.md%29%29">
+  <link rel="stylesheet" href="/styles.css">
+  
+
+  
+
+  
+  <link rel="alternate" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  <link rel="feed" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/img/favicon/site.webmanifest">
+  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="icon" type="image/png" href="/img/icon.png">
+  <link rel="apple-touch-icon" type="image/png" href="/img/icon-192.png">
+
+  <link rel="canonical" href="https://checkking.github.io/post/lang/cpp3/">
+
+  <meta property="twitter:card" content="summary_large_image">
+  
+  <meta property="twitter:site" content="@">
+  <meta property="twitter:creator" content="@">
+  
+  <meta property="og:site_name" content="Check King&#39;s Blog">
+  <meta property="og:url" content="https://checkking.github.io/post/lang/cpp3/">
+  <meta property="og:title" content="线程安全的对象生命周期管理 | Check King&#39;s Blog">
+  <meta property="og:locale" content="en-us">
+  
+  <meta property="article:published_time" content="2017-03-04T21:07:16&#43;08:00">
+  
+  <meta property="article:modified_time" content="2017-03-04T21:07:16&#43;08:00">
+  
+
+  <title>线程安全的对象生命周期管理 | Check King&#39;s Blog</title>
+
+  
+
+</head>
+<body>
+
+<style type="text/css">
+
+.masthead-hero {
+  background-image: url("https://checkking.github.io/img/hero.jpg");
+}
+</style>
+
+<div class="masthead-hero"></div>
+
+
+<div id="main" role="main">
+  <div class="sidebar sticky" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <div class="author-avatar">
+    <a href="/">
+      <img src="/img/avatar.png" alt="Check King" itemprop="image">
+    </a>
+  </div>
+  <div class="author-content">
+    <h3 class="author-name" itemprop="name">Check King</h3>
+    <p class="author-bio" itemprop="description">A backend programmer.</p>
+  </div>
+  <div class="author-urls-wrapper">
+    <ul class="author-urls social-icons" aria-hidden="true">
+      <li itemprop="homeLocation" itemscope itemtype="http://schema.org/Place">
+        <span itemprop="name">Shenzhen China</span>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-instagram"></i>
+          Instagram
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-linkedin"></i>
+          LinkedIn
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-twitter"></i>
+          Twitter
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="//github.com/checkking" target="_blank" rel="noopener">
+          <i class="fa fa-github"></i>
+          Github
+        </a>
+      </li>
+      
+    </ul>  
+  </div>
+</div>
+
+  <article class="page">
+		<div class="page_container">
+			<section class="page_content">
+				<div class="navbar-hero">
+	<nav>
+		<a href="/">Home</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/projects">Projects</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/blog">Blog</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/about">About</a>
+	</nav>
+</div>
+				<article class="post" itemscope itemtype="http://schema.org/Article">
+  <div class="post-container">
+    <h1 itemprop="name"><a href="https://checkking.github.io/post/lang/cpp3/">线程安全的对象生命周期管理</a></h1>
+
+    
+      
+
+<div class="post-metadata">
+
+  <span class="post-date">
+    
+    <time datetime="2017-03-04 21:07:16 &#43;0800 CST" itemprop="datePublished dateModified">
+      Mar 4, 2017
+    </time>
+  </span>
+
+  
+
+</div>
+
+    
+
+    <div class="post-style" itemprop="articleBody">
+      
+      
+
+<h3 id="对象销毁不容易">对象销毁不容易</h3>
+
+<p>对一般成员函数而言，做到线程安全的办法是让他们顺次执行，而不要并发执行（不要同时读写共享状态），也就是让每个成员函数的临界区不重叠。不过这里有一个隐含条件：成员函数用来保护临界区的互斥器本身是有效的。而析构函数破坏了这一假设，它会把mutex成员变量销毁掉。请看下面的例子：</p>
+
+<pre><code class="language-cpp">Foo::~Foo() {
+    MutexLockGuard lock(_mutex);
+    // free internal state            (1)
+}
+</code></pre>
+
+<pre><code class="language-cpp">void Foo::update() {
+    MutexLocakGuard lock(_mutex);           // (2)
+    // make use of internal state
+}
+</code></pre>
+
+<p>此时，有A,B两个线程都能看到Foo对象x, 线程A即将销毁x，而线程B正准备调用x-&gt;update().</p>
+
+<pre><code class="language-cpp">extern Foo* x;     // visibale by all threads
+// thread A
+delete x;
+x = NULL;
+
+
+// thread B
+if (x) {
+    x-&gt;update();
+}
+</code></pre>
+
+<p>这里有一个race condition:</p>
+
+<ol>
+<li>线程执行到(1)处，已经持有了互斥锁，即将继续往下执行。</li>
+<li>线程B通过了if(x)检查（此时x被销毁，但还没有执行x=NULL），接着阻塞在(2)处。</li>
+</ol>
+
+<p>接下来会发生什么是不确定的，因为析构函数会把_mutex销毁，那么(2)处有可能永远阻塞下去，有可能进入临界区，然后core dump，或更糟糕的情况。</p>
+
+<p>这个例子说明，作为class的数据成员MutexLock只能同步本class的其他数据成员的读写，他不能保护安全地析构。因为MutexLock成员的生命周期最多和本class一样长，而析构函数可说是发生在对象身故之后。</p>
+
+<p>另外，如果要同时读写一个class的两个对象，有潜在的死锁可能。比如说有swap这个函数：</p>
+
+<pre><code class="language-cpp">void swap(Conter&amp; a, Counter&amp; b) {
+    MutexLockGuard aLock(a._mutex);
+    MutexLockGuard bLock(b._mutex);
+    int64_t value = a._value;
+    a._value = b._value;
+    b._value = value;
+}
+</code></pre>
+
+<p>如果线程A执行swap(a, b); 而同时线程B执行swap(b,a)，就有可能发生死锁。</p>
+
+<p>一个函数如果要锁住相同类型的多个对象，为了保证始终按相同的顺序加锁，我们可以比较mutex对象的地址，始终加锁地址较小的mutex。</p>
+
+<h3 id="原始指针的问题">原始指针的问题</h3>
+
+<h4 id="空悬指针">空悬指针</h4>
+
+<p>有两个指针p1和p2, 指向堆上的同一个对象Object，p1和p2位于不同的线程中，假设线程A通过p1指针将对象销毁了，那么p2就变成空悬指针了。</p>
+
+<p><img src="../../img/201703/20170304-1.png" alt="空悬指针" /></p>
+
+<p>要想安全地销毁对象，最好在别人（线程）都看不到的情况下，偷偷去做。这正是垃圾回收的原理，所有人都看不到的东西一定是垃圾。</p>
+
+<h4 id="一个解决办法">一个解决办法</h4>
+
+<p>一个解决空悬指针的办法是，引入一层间接性，让p1和p2所指的对象永久有效。如图proxy对象。当销毁Object之后，proxy对象继续存在，其值变为0。而p2也没有变成空悬指针，它可以通过查看proxy的内容来判断Object是否还活着。</p>
+
+<p><img src="../../img/201703/20170304-2.png" alt="proxy1" /></p>
+
+<p>要线程安全得释放Object不是那么容易，race condition依旧存在。比如p2看到第一眼的时候proxy不是0，正准备去调用Object的成员函数，期间对象已经被p1给销毁了。</p>
+
+<p><img src="../../img/201703/20170304-3.png" alt="proxy2" /></p>
+
+<p>为题在于，何时释放proxy指针呢？</p>
+
+<h4 id="一个更好的办法">一个更好的办法</h4>
+
+<p>为了安全地释放proxy，我们可以引入引用计数(refernce counting)。</p>
+
+<ul>
+<li>一开始，有两个引用，计数值为2</li>
+</ul>
+
+<p><img src="../../img/201703/20170304-4.png" alt="smart pointer1" /></p>
+
+<ul>
+<li>sp1析构了，引用计数的值减为1</li>
+</ul>
+
+<p><img src="../../img/201703/20170304-5.png" alt="smart pointer2" /></p>
+
+<ul>
+<li>sp2也析构了，引用计数降为0，可以安全地销毁proxy和Object了</li>
+</ul>
+
+<p><img src="../../img/201703/20170304-6.png" alt="smart pointer2" /></p>
+
+<p>这正是引用计数类型的智能指针的做法。</p>
+
+<h3 id="神器shared-ptr-weak-ptr">神器shared_ptr/weak_ptr</h3>
+
+<ul>
+<li>shared_ptr共享被管理对象，同一时刻可以有多个shared_ptr拥有对象的所有权，当最后一个shared_ptr对象销毁时，被管理对象自动销毁。</li>
+<li>weak_ptr不拥有对象的所有权，但是它可以判断对象是否存在和返回指向对象的shared_ptr类型指针；它的用途之一是解决了多个对象内部含有shared_ptr循环指向，导致对象无法释放的问题。
+通过阅读<a href="https://github.com/gcc-mirror/gcc/blob/master/libstdc%2B%2B-v3/include/tr1/shared_ptr.h" target="_blank">gcc相关源码</a>，可以画出类的关系图如下：</li>
+</ul>
+
+<p><img src="../../img/201703/20170304-7.png" alt="shared_ptr/weak_ptr" /></p>
+
+<p>从上面的类图可以清楚的看出shared_ptr内部含有一个指向被管理对象(managed object)T的指针以及一个<strong>shared_count对象，</strong>shared_count对象包含一个指向管理对象(manager object)的基类指针，管理对象(manager object)由具有原子属性的use_count和weak_count、指向被管理对象(managed object)T的指针、以及用来销毁被管理对象的deleter组成，以下均将用new创建后托管给shared_ptr等智能指针的对象叫做被管理对象（managed object)；shared_ptr等智能指针内部创建的用来维护被管理对象生命周期的实例叫做管理对象(manager object)：</p>
+
+<p><img src="../../img/201703/20170304-8.png" alt="shared_ptr/weak_ptr" /></p>
+
+<p>weak_ptr内部组成与shared_ptr类似，内部同样含有一个指向被管理对象T的指针以及一个__weak_count对象：</p>
+
+<p><img src="../../img/201703/20170304-9.png" alt="shared_ptr/weak_ptr" /></p>
+
+<p>shared_ptr与weak_ptr的差异主要是由<strong>shared_ptr与</strong>weak_ptr体现出来的，而<strong>shared_ptr与</strong>weak_ptr的差异则主要是由<strong>shared_count与</strong>weak_count体现出来。</p>
+
+<p>通过shared_ptr的构造函数，可以发现，在创建一个shared_ptr的时候需要一个new 操作符返回被管理对象的地址来初始化shared_ptr, shared_ptr在内部会构建一个_shared_count对象，由_shared_count对象的构造函数可知，创建shared_ptr的时候也动态的创建了一个管理对象_Sp_counted_base_impl:</p>
+
+<pre><code class="language-cpp">template&lt;typename _Tp1&gt; explicit __shared_ptr(_Tp1* __p)
+: _M_ptr(__p), _M_refcount(__p) {
+    __glibcxx_function_requires(_ConvertibleConcept&lt;_Tp1*, _Tp*&gt;)
+    typedef int _IsComplete[sizeof(_Tp1)];
+    __enable_shared_from_this_helper(_M_refcount, __p, __p);
+}
+
+template&lt;typename _Ptr&gt;
+__shared_count(_Ptr __p) : _M_pi(0)
+{
+    __try
+   {
+      typedef typename std::tr1::remove_pointer&lt;_Ptr&gt;::type _Tp;
+      _M_pi = new _Sp_counted_base_impl&lt;_Ptr, _Sp_deleter&lt;_Tp&gt;, _Lp&gt;(__p, _Sp_deleter&lt;_Tp&gt;());
+    }
+    __catch(...)
+    {
+        delete __p;
+    __throw_exception_again;
+    }
+}
+</code></pre>
+
+<p><code>shared_ptr</code>内部包含一个指向被管理对象的指针<code>_M_ptr</code>, <code>_Sp_counted_base_impl</code>内部也含有一个指向被管理对象的指针<code>_M_ptr</code>， 它们是不是重复多余了呢？实际上不多余，它们有各自的功能。这首先要从<code>shared_ptr</code>的拷贝构造或者赋值构造说起，当一个<code>shared_ptr</code>对象<code>sp2</code>是由<code>sp1</code>拷贝构造或者赋值构造得来的时候，实际上构造完成后<code>sp1</code>内部的<code>__shared_count</code>对象包含的指向管理对象的指针与<code>sp2</code>内部的<code>__shared_count</code>对象包含的指向管理对象的指针是相等的，也就是说当多个<code>shared_ptr</code>对象来管理同一个对象时，它们共同使用同一个动态分配的管理对象。这可以从下面的<code>__share_ptr</code>的构造函数和<code>__shared_count</code>的构造函数清楚的看出。</p>
+
+<pre><code class="language-cpp">template&lt;typename _Tp1&gt;
+ __shared_ptr(const __shared_ptr&lt;_Tp1, _Lp&gt;&amp; __r)
+ : _M_ptr(__r._M_ptr), _M_refcount(__r._M_refcount) // never throws
+{__glibcxx_function_requires(_ConvertibleConcept&lt;_Tp1*, _Tp*&gt;)}
+
+
+__shared_count&amp;
+operator=(const __shared_count&amp; __r) // nothrow
+{
+    _Sp_counted_base&lt;_Lp&gt;* __tmp = __r._M_pi;
+    if (__tmp != _M_pi)
+    {
+        if (__tmp != 0)
+            __tmp-&gt;_M_add_ref_copy();
+    if (_M_pi != 0)
+        _M_pi-&gt;_M_release();
+
+        _M_pi = __tmp;
+    }
+}
+</code></pre>
+
+<p><code>__shared_count</code>内部的<code>use_count</code>主要用来标记被管理对象的生命周期，<code>weak_count</code>主要用来标记管理对象的生命周期。</p>
+
+<p>当一个<code>shared_ptr</code>超出作用域被销毁时，它会调用其<code>_share_count</code>的<code>_M_release()</code>对<code>use_count</code>和<code>weak_count</code>进行自减并判断是否需要释放管理对象和被管理对象，这是RAII原理的核心体现：</p>
+
+<pre><code class="language-cpp">~__shared_count() // nothrow
+ {
+     if (_M_pi != 0)
+      _M_pi-&gt;_M_release();
+ }
+</code></pre>
+
+<p>对于<code>weak_ptr</code>, 其对应的<code>__weak_count</code>的拷贝构造函数如下:</p>
+
+<pre><code class="language-cpp">//************_Sp_counted_base*****************//
+ void
+ _M_weak_add_ref() // nothrow
+{ __gnu_cxx::__atomic_add_dispatch(&amp;_M_weak_count, 1); }
+
+//************_Sp_counted_base*****************//
+void
+_M_weak_release() // nothrow
+{
+    // Be race-detector-friendly. For more info see bits/c++config.
+    _GLIBCXX_SYNCHRONIZATION_HAPPENS_BEFORE(&amp;_M_weak_count);
+    if (__gnu_cxx::__exchange_and_add_dispatch(&amp;_M_weak_count, -1) == 1)
+    {
+        _GLIBCXX_SYNCHRONIZATION_HAPPENS_AFTER(&amp;_M_weak_count);
+    if (_Mutex_base&lt;_Lp&gt;::_S_need_barriers)
+    {
+        // See _M_release(),
+        // destroy() must observe results of dispose()
+            __atomic_thread_fence (__ATOMIC_ACQ_REL);
+    }
+    _M_destroy();
+    }
+}
+
+__weak_count&lt;_Lp&gt;&amp;
+operator=(const __shared_count&lt;_Lp&gt;&amp; __r) // nothrow
+{
+    _Sp_counted_base&lt;_Lp&gt;* __tmp = __r._M_pi;
+    if (__tmp != 0)
+        __tmp-&gt;_M_weak_add_ref();
+
+    if (_M_pi != 0)
+        _M_pi-&gt;_M_weak_release();
+
+    _M_pi = __tmp;
+
+    return *this;
+}
+
+__weak_count&lt;_Lp&gt;&amp;
+operator=(const __weak_count&lt;_Lp&gt;&amp; __r) // nothrow
+{
+    _Sp_counted_base&lt;_Lp&gt;* __tmp = __r._M_pi;
+    if (__tmp != 0)
+        __tmp-&gt;_M_weak_add_ref();
+    if (_M_pi != 0)
+        _M_pi-&gt;_M_weak_release();
+    _M_pi = __tmp;
+
+    return *this;
+}
+
+__weak_count&lt;_Lp&gt;&amp;
+operator=(const __shared_count&lt;_Lp&gt;&amp; __r) // nothrow
+{
+    _Sp_counted_base&lt;_Lp&gt;* __tmp = __r._M_pi;
+    if (__tmp != 0)
+      __tmp-&gt;_M_weak_add_ref();
+    if (_M_pi != 0)
+      _M_pi-&gt;_M_weak_release();
+    _M_pi = __tmp;
+    return *this;
+}
+
+~__weak_count() // nothrow
+{
+    if (_M_pi != 0)
+        _M_pi-&gt;_M_weak_release();
+}
+</code></pre>
+
+<p>从上面可以看出:</p>
+
+<p><code>__weak_count</code>相关的赋值拷贝以及析构函数均只会影响到<code>weak_count</code>的值，对<code>use_count</code>没有影响；当<code>weak_count</code>为0时，释放管理对象。也就是说<code>__weak_ptr</code>不影响被管理对象的生命周期。同时由于<code>__weak_ptr</code>没有像<code>__shared_ptr</code>那样实现<code>*</code>，<code>-&gt;</code>等常见指针相关操作符，<code>__weak_ptr</code>不能直接操作被管理对象；
+<code>__weak_count</code>自身间的赋值以及<code>__shared_count</code>对<code>__weak_count</code>的赋值时，它们都具有同样的指向管理对象的指针；也就是说当多个<code>__weak_ptr</code>和<code>__shared_ptr</code>指向同一个被管理对象时，它们共享同一个管理对象，这就保证了可以通过<code>__weak_ptr</code>可以判断<code>__shared_ptr</code>指向的被管理对象是否存在以及获取到被管理对象的指针。
+<code>__shared_ptr</code>与<code>__weak_ptr</code>在管理同一对象时，它们间的关系如下图所示：</p>
+
+<p><img src="../../img/201703/20170304-10.png" alt="shared_ptr/weak_ptr" /></p>
+
+<p>由于<code>weak_ptr</code>不能直接操作被管理对象但其仍然持有指向被管理对象的指针（用来初始化内部的<code>__weak_count</code>对象），<code>weak_ptr</code>与被管理对象用虚线联接。
+<code>_weak_ptr</code>有几个重要的成员函数：通过<code>expired()</code>方法来判断对象是否过期（已经被释放）；通过<code>use_count()</code>方法返回目前有多少个<code>__shared_ptr</code>对象指向被管理对象；通过<code>lock()</code>方法返回一个指向被管理对象的<code>__shared_ptr</code>指针，调用者可以通过这个<code>__shared_ptr</code>指针来操纵被管理对象而不用担心资源泄漏。</p>
+
+<pre><code class="language-cpp">/*************_weak_ptr*************************/
+long
+use_count() const // never throws
+{ return _M_refcount._M_get_use_count(); }
+
+bool
+expired() const // never throws
+{ return _M_refcount._M_get_use_count() == 0; }
+
+__shared_ptr&lt;_Tp, _Lp&gt;
+lock() const // never throws
+{
+#ifdef __GTHREADS
+       // Optimization: avoid throw overhead.
+    if (expired())
+              return __shared_ptr&lt;element_type, _Lp&gt;();
+
+    __try
+    {
+            return __shared_ptr&lt;element_type, _Lp&gt;(*this);
+    }
+    __catch(const bad_weak_ptr&amp;)
+    {
+        // Q: How can we get here?
+       // A: Another thread may have invalidated r after the
+       //    use_count test above.
+       return __shared_ptr&lt;element_type, _Lp&gt;();
+     }
+
+#else
+    // Optimization: avoid try/catch overhead when single threaded.
+    return expired() ? __shared_ptr&lt;element_type, _Lp&gt;()
+                     : __shared_ptr&lt;element_type, _Lp&gt;(*this);
+
+#endif
+} // XXX MT
+</code></pre>
+
+<p>当然<code>shared_ptr</code>也不是万能的，使用的时候也要注意到它给程序员挖的一个大坑：<code>shared_ptr</code>能够管理对象的生命周期，负责对象资源释放，其前提条件是所有<code>shared_ptr</code>共用同一个管理对象。如果多个<code>shared_ptr</code>使用多个管理对象来管理同一个被管理对象，这些管理对象在<code>use_count</code>为0时均会释放被管理对象，将会造成多个管理对象多次释放被管理对象，造成twice delete的堆错误。下面的例子在单独使用裸指针的时候没有问题，采用<code>shared_ptr</code>将会出现twice delete的问题：</p>
+
+<pre><code class="language-cpp">class Thing {
+public:
+    void foo();
+    void defrangulate();
+};
+void transmogrify(Thing *);
+int main()
+{
+    Thing * t1 = new Thing;
+    t1-&gt;foo();
+    ...
+    delete t1; // done with the object
+}
+...
+void Thing::foo()
+{
+    // we need to transmogrify this object
+    transmogrify(this);
+}
+void transmogrify(Thing * ptr)
+{
+    ptr-&gt;defrangulate();
+    /* etc. */
+}
+//***** Use shared_ptr***************************//
+class Thing {
+public:
+    void foo();
+    void defrangulate();
+};
+void transmogrify(shared_ptr&lt;Thing&gt;);
+int main()
+{
+    shared_ptr&lt;Thing&gt; t1(new Thing); // create manager object A for the Thing
+    t1-&gt;foo();
+    ...
+    // Thing is supposed to get deleted when t1 goes out of scope
+}
+void Thing::foo()
+{
+    // we need to transmogrify this object
+    shared_ptr&lt;Thing&gt; sp_for_this(this); //  create manager object B for the Thing
+    transmogrify(sp_for_this);
+
+    // Thing is supposed to get deleted when sp_for_this and other shared_ptr goes out of scope
+}
+void transmogrify(shared_ptr&lt;Thing&gt; ptr)
+{
+    ptr-&gt;defrangulate();
+    /* etc. */
+}
+</code></pre>
+
+<p>上面注释处分别创建了两个<code>shared_ptr</code>指针<code>t1</code>，<code>sp_for_this</code>, 它们各自有自己的管理对象，但被管理的堆内存却是一样的，这就导致在<code>t1</code>和<code>sp_for_this</code>析构时，它们各自的管理对象均会析构被管理对象，造成twice delete。</p>
+
+<p>怎样解决上面这一广泛存在问题：当一个对象M创建后，如果一个函数f（另一个类的成员函数或是其它自由函数）的形参为M类型的智能指针，如何在对象M内部将对象M的指针作为实参传递给该函数f ? C++引入了<code>enable_shared_from_this</code>利用<code>weak_ptr</code>的特性解决了这一问题。其基本思想是通过M继承模板类<code>enable_shared_from_this</code>，这样对象M内部将会有一个<code>__weak_ptr</code>指针<code>_M_weak_this</code>，在第一次创建指向M的<code>shared_ptr Pt</code>时，通过模板特化，将会初始化<code>_M_weak_this</code>;这样M内部也会产生一个指向自身的<code>weak_ptr</code>，并且该<code>weak_ptr</code>内部的管理对象与Pt的管理对象是相同的（这可以从<code>weak_ptr</code>内部的<code>_M_assign</code>函数看出）。</p>
+
+<p>上面示例中改写后的正确代码为：</p>
+
+<pre><code class="language-cpp">class Thing : public enable_shared_from_this&lt;Thing&gt; {
+public:
+    void foo();
+    void defrangulate();
+};
+int main()
+{
+    // The following starts a manager object for the Thing and also
+    // initializes the weak_ptr member that is now part of the Thing and share same manager object.
+    shared_ptr&lt;Thing&gt; t1(new Thing);
+    t1-&gt;foo();
+    ...
+}
+void Thing::foo()
+{
+    // get a shared_ptr from the weak_ptr in this object
+    shared_ptr&lt;Thing&gt; sp_this = shared_from_this();
+    transmogrify(sp_this);
+}
+void transmogrify(shared_ptr&lt;Thing&gt; ptr)
+{
+    ptr-&gt;defrangulate();
+    /* etc. */
+}
+</code></pre>
+
+<p>解决了所有的坑，<code>shared_ptr</code>是不是就十全十美了呢？当然不是，<code>shared_ptr</code>也存在不足：在采用<code>shared_ptr&lt;M&gt; p(new M);</code>形式创建<code>p</code>来管理<code>M</code>时，我们实际发现这中间有两次的动态内存分配：一次为创建被管理对象M，一次为创建管理对象；而内存分配通常是比较昂贵的操作。</p>
+
+<p>如果频繁的需要创建指向多个不同对象的智能指针，可以采用<code>shared_ptr&lt;M&gt; p(make_shared&lt;M&gt;);</code>的方式，采用这种方式系统将会分配一大块内存同时存放管理对象和被管理对象，这就避免了上面所说的二次内存分配的问题，同时程序中也不会出现<code>new</code>操作符，符合&rdquo;no naked new!&ldquo;的编程倡导。当然这也有缺点，如果所有指向该对象的智能指针都销毁了，尽管对象的析构函数会被调用，析构被管理对象，但是如果还有<code>weak_ptr</code>指向该块对象所在的内存，存放管理对象的部分内存仍将不会被释放，因而导致在所有其他<code>weak_ptr</code>销毁前整块内存（尽管被管理对象已经析构了）将不会进入系统的内存池循环使用。</p>
+
+<p>有了上面的这些知识，可以写一个完整的SotokFactory，代码如下：</p>
+
+<pre><code class="language-cpp">class StockFactory : public boost::enable_shared_from_this&lt;StockFactory&gt;,
+                       boost::noncopyable
+{
+ public:
+  shared_ptr&lt;Stock&gt; get(const string&amp; key)
+  {
+    shared_ptr&lt;Stock&gt; pStock;
+    MutexLock lock(mutex_);
+    weak_ptr&lt;Stock&gt;&amp; wkStock = stocks_[key];
+    pStock = wkStock.lock();
+    if (!pStock) {
+      pStock.reset(new Stock(key),
+                   boost::bind(&amp;StockFactory::weakDeleteCallback,
+                               boost::weak_ptr&lt;StockFactory&gt;(shared_from_this()),
+                               _1));
+      // 上面必须强制把 shared_from_this() 转型为 weak_ptr，才不会延长生命期
+       wkStock = pStock;
+    }
+    return pStock;
+  }
+private:
+  static void weakDeleteCallback(boost::weak_ptr&lt;StockFactory&gt; wkFactory,
+                                 Stock* stock)
+  {
+    shared_ptr&lt;StockFactory&gt; factory(wkFactory.lock());
+    if (factory) {  // 如果 factory 还在，那就清理 stocks_
+      factory-&gt;removeStock(stock);
+    }
+    delete stock;  // sorry, I lied
+  }
+  void removeStock(Stock* stock)
+  {
+    if (stock) {
+      MutexLock lock(mutex_);
+      stocks_.erase(stock-&gt;key());
+    }
+  }
+ private:
+  std::map&lt;string, weak_ptr&lt;Stock&gt; &gt; stocks_;
+  mutable Mutex mutex_;
+};
+
+
+void testLongLifeFactory()
+{
+  shared_ptr&lt;StockFactory&gt; factory(new StockFactory);
+  {
+    shared_ptr&lt;Stock&gt; stock = factory-&gt;get(&quot;NYSE:IBM&quot;);
+    shared_ptr&lt;Stock&gt; stock2 = factory-&gt;get(&quot;NYSE:IBM&quot;);
+    assert(stock == stock2);
+    // stock destructs here
+  }
+  // factory destructs here
+}
+void testShortLifeFactory()
+{
+  shared_ptr&lt;Stock&gt; stock;
+  {
+    shared_ptr&lt;StockFactory&gt; factory(new StockFactory);
+    stock = factory-&gt;get(&quot;NYSE:IBM&quot;);
+    shared_ptr&lt;Stock&gt; stock2 = factory-&gt;get(&quot;NYSE:IBM&quot;);
+    assert(stock == stock2);
+    // factory destructs here
+  }
+  // stock destructs here
+}
+</code></pre>
+
+<h4 id="参考资料">参考资料</h4>
+
+<ol>
+<li>《Linux 多线程服务端编程》(陈硕)</li>
+<li><a href="http://lib.csdn.net/article/cplusplus/22038" target="_blank">C++ 智能指针（shared_ptr/weak_ptr）源码分析</a></li>
+</ol>
+
+    </div>
+
+    
+      
+
+    
+
+    
+      
+<div class="share-box" aria-hidden="true">
+  <ul class="share">
+    <li>
+      <a class="twitter"
+         href="https://twitter.com/intent/tweet?text=%e7%ba%bf%e7%a8%8b%e5%ae%89%e5%85%a8%e7%9a%84%e5%af%b9%e8%b1%a1%e7%94%9f%e5%91%bd%e5%91%a8%e6%9c%9f%e7%ae%a1%e7%90%86&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2flang%2fcpp3%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-twitter"></i>
+      </a>
+    </li>
+    <li>
+      <a class="facebook"
+         href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fcheckking.github.io%2fpost%2flang%2fcpp3%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-facebook"></i>
+      </a>
+    </li>
+    <li>
+      <a class="linkedin"
+         href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2flang%2fcpp3%2f&amp;title=%e7%ba%bf%e7%a8%8b%e5%ae%89%e5%85%a8%e7%9a%84%e5%af%b9%e8%b1%a1%e7%94%9f%e5%91%bd%e5%91%a8%e6%9c%9f%e7%ae%a1%e7%90%86"
+         target="_blank" rel="noopener">
+        <i class="fa fa-linkedin"></i>
+      </a>
+    </li>
+    <li>
+      <a class="email"
+         href="mailto:?subject=%e7%ba%bf%e7%a8%8b%e5%ae%89%e5%85%a8%e7%9a%84%e5%af%b9%e8%b1%a1%e7%94%9f%e5%91%bd%e5%91%a8%e6%9c%9f%e7%ae%a1%e7%90%86&amp;body=https%3a%2f%2fcheckking.github.io%2fpost%2flang%2fcpp3%2f">
+        <i class="fa fa-envelope"></i>
+      </a>
+    </li>
+  </ul>
+</div>
+
+
+    
+
+    
+      
+
+    
+
+  </div>
+</article>
+			</section>
+		</div>
+	</article>
+</div> 
+
+<div class="page_footer">
+	<p>&copy; Check King 2018. Powered by <a href="http://gohugo.io/">Hugo</a> and <a href="https://github.com/jhu247/minimal-academic">Minimal Academic</a>.</p>
+</div>
+    
+    
+
+
+  </body>
+</html>
