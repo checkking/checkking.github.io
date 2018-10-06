@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-02-13T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-03-21T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -72,6 +72,94 @@
   
   
   <div>
+    <h2><a href="https://checkking.github.io/post/cs/pb_update_message_roles/">protobuf更新Message原则</a></h2>
+    <div class="post-style">
+      
+      If an existing message type no longer meets all your needs – for example, you&rsquo;d like the message format to have an extra field – but you&rsquo;d still like to use code created with the old format, don&rsquo;t worry! It&rsquo;s very simple to update message types without breaking any of your existing code. Just remember the following rules: - Don&rsquo;t change the numeric tags for any existing fields. - Any new fields that you add should be optional or repeated.
+      
+    </div>
+  </div>
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/cs/pb_internal/">Google Protobuff编码</a></h2>
+    <div class="post-style">
+      
+      Base 128 Varints 官方描述：Each byte in a varint, except the last byte, has the most significant bit (msb) set – this indicates that there are further bytes to come. The lower 7 bits of each byte are used to store the two&rsquo;s complement representation of the number in groups of 7 bits, least significant group first. 也就是：
+ 除了最后一个字节，varint中的每个字节的最高位设为1，表示后面还有字节出现 每个字节的低7位看成是一个组（group），这个组和他相邻的下一个7位组共同存储某个整形的“组合表示”，最低有效组在前面。  例子： 1. 一个字节。下面只有一个字节，所以最高位是0，表示十进制1
+0000 0001   两个字节 bash 1010 1100 0000 0010  由于第一个字节后面还有一个字节，所以第一个字节的最高位设置为1，表示后面还有后继字节，第二个字节的最高位为0。去掉每个字节的最高位，我们对两个字节进行分组。第一个7位组：0101100，第二个7位组：0000010，组合起来就是：0101100 0000010。 由于protobuf采用小端字节序(关于字节序)，也就是数据的低位保存在内存的低地址中，调整为0101100 0000010, 十进制为2^8 + 2^5 + 2^3 + 2^2 = 300  300 的二进制表示为 100101100，通过 Varint 编码后的二进制表示为 10101100 00000010，详细过程如下： message数据格式 比如我们定义了proto
+      
+    </div>
+  </div>
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/cs/nonblock_socket_conn/">非阻塞socket调用connect</a></h2>
+    <div class="post-style">
+      
+      我们知道，如果socket为TCP套接字，则connect函数会激发TCP的三次握手过程，而三次握手是需要一些时间的，内核中对connect的超时限制是75秒，就是说如果超过75秒则connect会由于超时而返回失败。但是如果对端服务器由于某些问题无法连接，那么每一个客户端发起的connect都会要等待75才会返回，因为socket默认是阻塞的。对于一些线上服务来说，假设某些对端服务器出问题了，在这种情况下就有可能引发严重的后果。或者在有些时候，我们不希望在调用connect的时候阻塞住，有一些额外的任务需要处理。
+这种场景下，我们就可以将socket设置为非阻塞，如下代码：
+int flags = fcntl(c_fd, F_GETFL, 0); if(flags &lt; 0) { return 0; } fcntl(c_fd, F_SETFL, flags | O_NONBLOCK);  当我们将socket设置为NONBLOCK后，在调用connect的时候，如果操作不能马上完成，那connect便会立即返回，此时connect有可能返回-1， 此时需要根据相应的错误码errno，来判断连接是否在继续进行。比较完整的做法如下:
+int sockfd = sockets::createNonblockingOrDie(_serverAddr.family()); int ret = sockets::connect(sockfd, _serverAddr.getSockAddr()); int savedErrno = (ret == 0) ? 0 : errno; switch (savedErrno) { case 0: case EINPROGRESS: case EINTR: case EISCONN: connecting(sockfd); break; case EAGAIN: case EADDRINUSE: case EADDRNOTAVAIL: case ECONNREFUSED: case ENETUNREACH: retry(sockfd); break; case EACCES: case EPERM: case EAFNOSUPPORT: case EALREADY: case EBADF: case EFAULT: case ENOTSOCK: LOG_ERROR &lt;&lt; &quot;connect error in Connector::startInLoop &quot; &lt;&lt; savedErrno; sockets::close(sockfd); break; default: LOG_ERROR &lt;&lt; &quot;Unexpected error in Connector::startInLoop &quot; &lt;&lt; savedErrno; sockets::close(sockfd); break; }  使用非阻塞 connect 需要注意的问题是： 1.
+      
+    </div>
+  </div>
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/cs/tcp_self_conn/">tcp自连接问题</a></h2>
+    <div class="post-style">
+      
+    </div>
+  </div>
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/cs/spurious_wakeup/">pthread_cond_wait的虚假唤醒</a></h2>
+    <div class="post-style">
+      
+      pthread_cond_wait通常用法 pthread_cond_wait的通常使用方法如下：
+#include &lt;pthread.h&gt; struct msg { struct msg <em>m_next; /</em> &hellip; more stuff here &hellip; */ }; struct msg *workq; pthread_cond_t qready = PTHREAD_COND_INITIALIZER; pthread_mutex_t qlock = PTHREAD_MUTEX_INITIALIZER; void process_msg(void) { struct msg <em>mp; for (;;) { pthread_mutex_lock(&amp;qlock); while (workq == NULL) { // (1) pthread_cond_wait(&amp;qready, &amp;qlock); } } mp = workq; workq = mp-&gt;m_next; pthread_mutex_unlock(&amp;qlock); /</em> now process the message mp */ } void enqueue_msg(struct msg *mp) { pthread_mutex_lock(&amp;qlock); mp-&gt;m_next = workq; workq = mp; pthread_mutex_unlock(&amp;qlock); pthread_cond_signal(&amp;qready); }  (1)处为什么要用while, 而不是简单的if呢？这是因为为了避免Spurious wakeup。
+      
+    </div>
+  </div>
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/lang/cpp2/">谈谈enable_shared_from_this</a></h2>
+    <div class="post-style">
+      
+      以前都没有用过enable_shared_from_this模板类，虽然经常遇到但是也没怎么去关注，今天抽时间好好学习了下enable_shared_from_this模板类，发现在使用shared_ptr模板类和enable_shared_from_this模板类时有许多陷阱的，故记录于此。
+什么时候该使用enable_shared_from_this模板类 在看下面的例子之前，简单说下使用背景，单有一个类，某个函数需要返回当前对象的指针，我们返回的是shared_ptr，为什么使用智能指针呢，这是因为：当我们使用智能指针管理资源时，必须统一使用智能指针，而不能再某些地方使用智能指针，某些地方使用原始指针，否则不能保持智能指针的语义，从而产生各种错误。好了，介绍完背景，看下面的一段小程序：
+#include &lt;iostream&gt; #include &lt;boost/shared_ptr.hpp&gt; class Test { public: //析构函数 ~Test() { std::cout &lt;&lt; &quot;Test Destructor.&quot; &lt;&lt; std::endl; } //获取指向当前对象的指针 boost::shared_ptr&lt;Test&gt; GetObject() { boost::shared_ptr&lt;Test&gt; pTest(this); return pTest; } }; int main(int argc, char *argv[]) { { boost::shared_ptr&lt;Test&gt; p( new Test( )); boost::shared_ptr&lt;Test&gt; q = p-&gt;GetObject(); } return 0; }  程序输出：
+Test Destructor. Test Destructor.  从上面的输出你发现了什么，很明显的发现只创建new了一个Test对象，但是却调用了两次析构函数，这对程序来说肯定是一个灾难。为什么会出现这种情况呢？main函数中的boost::shared_ptr&lt;Test&gt; p( new Test( )); 将shared_ptr中引用计数器的值设置为1，而在GetObject函数中又通过boost::shared_ptr&lt;Test&gt; pTest(this)又将shared_ptr中的引用计数器的值增加了1，故在析构时一个Test对象被析构了两次。即产生这个错误的原因是通过同一个Test指针对象创建了多个shared_ptr，这是绝对禁止的。同时这也提醒我们在使用shared_ptr时一定不能通过同一个指针对象创建一个以上的shared_ptr对象。那么有什么方法从一个类的成员函数中获取当前对象的shared_ptr呢，其实方法很简单：只需要该类继承至enable_shared_from_this模板类,然后在需要shared_prt的地方调用enable_shared_from_this模板类的成员函数shared_from_this()即可，下面是改进后的代码：
+#include &lt;iostream&gt; #include &lt;boost/enable_shared_from_this.hpp&gt; #include &lt;boost/shared_ptr.
+      
+    </div>
+  </div>
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/nginx/nginx4/">nginx源码阅读点滴</a></h2>
+    <div class="post-style">
+      
+      ngx_add_inherited_sockets 这个函数的目的是为了实现nginx平滑升级时获取原来的监听fd, 通过环境变量NGINX完成socket的继承，继承来的socket将会放到init_cycle的listening数组中。在NGINX环境变量中，每个socket中间用冒号或分号隔开。完成继承同时设置全局变量ngx_inherited为1。 相关代码：
+ src/core/nginx.c
+static ngx_int_t ngx_add_inherited_sockets(ngx_cycle_t *cycle) { u_char *p, *v, *inherited; ngx_int_t s; ngx_listening_t *ls; inherited = (u_char *) getenv(NGINX_VAR); if (inherited == NULL) { return NGX_OK; } ngx_log_error(NGX_LOG_NOTICE, cycle-&gt;log, 0, &quot;using inherited sockets from &amp;quot;%s&amp;quot;&quot;, inherited); if (ngx_array_init(&amp;cycle-&gt;listening, cycle-&gt;pool, 10, sizeof(ngx_listening_t)) != NGX_OK) { return NGX_ERROR; } for (p = inherited, v = p; *p; p++) { if (*p == &lsquo;:&rsquo; || *p == &lsquo;;&rsquo;) { s = ngx_atoi(v, p - v); if (s == NGX_ERROR) { ngx_log_error(NGX_LOG_EMERG, cycle-&gt;log, 0, &quot;invalid socket number &amp;quot;%s&amp;quot; in &quot; NGINX_VAR &quot; environment variable, ignoring the rest&quot; &quot; of the variable&quot;, v); break; } v = p + 1; ls = ngx_array_push(&amp;cycle-&gt;listening); if (ls == NULL) { return NGX_ERROR; } ngx_memzero(ls, sizeof(ngx_listening_t)); ls-&gt;fd = (ngx_socket_t) s; } } ngx_inherited = 1; return ngx_set_inherited_sockets(cycle); }  src/core/nginx.
+      
+    </div>
+  </div>
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/nginx/nginx2/">nginx日志切分方案</a></h2>
+    <div class="post-style">
+      
+      nginx的日志切分问题一直是运维nginx时需要重点关注的。本文将简单说明下nginx支持的两种日志切分方式。
+定时任务切分 所谓的定时任务切分，是指通过定时任务（比如crontab)，发送信号给nginx，让其重新打开文件。该方法也是nginx官网上面比较推荐的,原文说明比较清楚，这里在说明下： 发送USR1 信号会让nginx主动重新打开日志文件，故操作如下：
+$ mv access.log access.log.0 $ kill -USR1 <code>cat master.nginx.pid</code> $ sleep 1 $ gzip access.log.0 # do something with access.log.0  总结 ：优点是思路较为简单，但效果明显，而且对error_log 同样适用；缺点是有外部依赖（比如 crontab)
+自切分 自切分是指让nginx自身实现日志切分功能，不依赖crontab等东西。 其主要原理是依赖access_log的强大功能&mdash;- 可以用变量定义请求的log路径。 nginx的acess_log 功能非常强大，其完整指令说明如下，这里主要说明定义日志路径的功能；关于syslog还有gzip, buffer等特性，后续再说明。
+access_log指令Syntax: access_log path [format [buffer=size [flush=time]] [if=condition]]; access_log path format gzip[=level] [buffer=size] [flush=time] [if=condition]; access_log syslog:server=address[,parameter=value] [format [if=condition]]; access_log off;
+默认：access_log logs/access.log combined; Context: http, server, location, if in location, limit_except
+注意path部分是支持nignx变量的，这也就意味这我们只要通过配置正确的nginx变量，就可以实现小时等级别的日志自动拆分了。
+      
+    </div>
+  </div>
+  
+  <div>
     <h2><a href="https://checkking.github.io/post/nginx/nginx1/">Nginx学习笔记(一)</a></h2>
     <div class="post-style">
       
@@ -93,39 +181,6 @@ try_files /system/maintenance.html $uri $uri/index.html $uri.html @other; locati
       
       location正则写法 一个示例：
 location = / { # 精确匹配 / ，主机名后面不能带任何字符串 [ configuration A ] } location / { # 因为所有的地址都以 / 开头，所以这条规则将匹配到所有请求 # 但是正则和最长字符串会优先匹配 [ configuration B ] } location /documents/ { # 匹配任何以 /documents/ 开头的地址，匹配符合以后，还要继续往下搜索 # 只有后面的正则表达式没有匹配到时，这一条才会采用这一条 [ configuration C ] } location ~ /documents/Abc { # 匹配任何以 /documents/Abc 开头的地址，匹配符合以后，还要继续往下搜索 # 只有后面的正则表达式没有匹配到时，这一条才会采用这一条 [ configuration CC ] } location ^~ /images/ { # 匹配任何以 /images/ 开头的地址，匹配符合以后，停止往下搜索正则，采用这一条。 [ configuration D ] } location ~* .
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/cs/singals/">信号量处理总结</a></h2>
-    <div class="post-style">
-      
-      背景 最近在做一个实时日志监控系统，系统架构是filebeat+logstash+twisted, 其中filebeat用来监控日志文件的新增变动，logstash格式化日志，twisted作为server，接收logstash的输入, 实时计算ctr， server的统计数据要每小时持久化一次，也就是要写进mysql数据库中。但是在写入Mysql的过程中不影响server接收请求处理。因此想到的方案是在进入下一个小时的这一时刻fork一个进程，然后再子进程中 进行写入mysql操作。这种方案和redis写入快照的方案一样，因为twisted和redis都是基于事件的单进程单线程服务器模型, 利用fork的copy on write，保证在子进程中数据和父进程不会混乱。这种方案是work的。 但是twisted中用信号量有一点小问题，就是不能用SIGCHLD这个信号量来通知父进程子进程退出了, 最终无奈让子进程在退出前向父进程发送SIGUSR1自定义信号量, 父进程在收到这个信号量时改变状态参数。 之前对信号量处理上有些模糊的地方，想通过本篇博客总结一下。
-什么是信号量 Unix信号是Unix系统的一种软件形式异常，一个信号就是一条消息，它通知进程系统中发生了一个某种类型的事件。在linux下输入&rdquo;man 7 signal&rdquo;就能得到Linux系统上支持的30中不同类型的信号。
-   Signal Value Action Comment     SIGHUP 1 Term Hangup detected on controlling terminal or death of controlling process   SIGINT 2 Term Interrupt from keyboard   SIGQUIT 3 Core Quit from keyboard   SIGILL 1 Term Hangup detected on controlling terminal or death of controlling process   SIGINT 4 Core Illegal Instruction   SIGABRT 6 Core Abort signal from abort(3)   SIGFPE 8 Core Floating point exception   SIGKILL 9 Term Kill signal   SIGSEGV 11 Core Invalid memory reference   SIGPIPE 13 Term Broken pipe: write to pipe with noreaders   SIGALRM 14 Term Timer signal from alarm(2)   SIGTERM 15 Term Termination signal   SIGUSR1 30,10,16 Term User-defined signal 1   SIGUSR2 31,12,17 Term User-defined signal 2   SIGCHLD 20,17,18 Ign Child stopped or terminated   SIGCONT 19,18,25 Cont Continue if stopped   SIGSTOP 17,19,23 Stop Stop process   SIGTSTP 18,20,24 Stop Stop typed at terminal   SIGTTIN 21,21,26 Stop Terminal input for background process   SIGTTOU 22,22,27 Stop Terminal output for background process    还有其他的没有列出来，可以自行查阅。信号提供了一种机制，通知用户进程发生了这些异常。 比如一个进程试图除以0，那么内核就发送给它一个SIGFPE信号。如果进程进行非法存储器引用，内核就发送一条 SIGSEGV信号， 当一个子进程终止或停止时，内核发送一个SIGCHLD信号给父进程。
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/arch/how_compute_big_file_lines/">从wc -l说起---如何统计大文件的行数</a></h2>
-    <div class="post-style">
-      
-      问题引入 昨天工作上有一个任务根据nginx日志做一些数据统计。由于日志文件很大，而且不断增大中。如果我要统计一小时以内的日志，这时候就没必要对所有日志都扫一遍。我的初步思路是先用wc -l统计一下日志行数，然后根据当前时间估算出平均每分钟产生了多少条日志。这样就可以估算一小时以内的日志条数了。然后用tail -n就可以了。 但是发现wc -l其实也是有点慢的。从gnu上把bash wc实现代码(<a href="http://mirrors.ustc.edu.cn/gnu/coreutils/coreutils-8.9.tar.gz)wget" target="_blank">http://mirrors.ustc.edu.cn/gnu/coreutils/coreutils-8.9.tar.gz)wget</a> 下来看了。统计单个文件的内部实现是调用read(int filedes, char <em>buf, unsigned nbytes) 先把内容读入buffer，然后按字节统计，在实现上做了一些细节优化，性能还是很好的。 但是不管怎么样还是要对所有字节都扫一遍。有没有更好的方式呢？
-粗略统计文件行数 unix中struct state记录文件所有信息，但是没有文件行数，因此不能直接get到。
-struct stat { dev_t st_dev; /</em> ID of device containing file <em>/ ino_t st_ino; /</em> inode number <em>/ mode_t st_mode; /</em> file type and mode <em>/ nlink_t st_nlink; /</em> number of hard links <em>/ uid_t st_uid; /</em> user ID of owner <em>/ gid_t st_gid; /</em> group ID of owner <em>/ dev_t st_rdev; /</em> device ID (if special file) <em>/ off_t st_size; /</em> total size, in bytes <em>/ blksize_t st_blksize; /</em> blocksize for filesystem I/O <em>/ blkcnt_t st_blocks; /</em> number of 512B blocks allocated <em>/ /</em> Since Linux 2.
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/lang/cpp1/">C&#43;&#43;前向声明</a></h2>
-    <div class="post-style">
-      
-      为什么需要前向声明? 编译器确保在文件中使用的函数没有拼写错误或参数个数不对，因此它坚持要在使用函数之前要看到它的声明， 也就是为了方便编译器生成目标代码，不至于编译成功，运行的时候却失败。比如下面的例子：
-// file func.cpp #include &lt;stdio.h&gt; void func(int a, float b) { (void)a; (void)b; printf(&quot;func(int a, float b)\n&quot;); }  // file main.cpp #include &lt;stdio.h&gt; void func(int a, int b) { (void)a; (void)b; printf(&quot;func(int a, int b)\n&quot;); } // void func(int a, float b); int main(int argc, char** argv) { func(1, 3.0f); return 0; }  我们本意想调用void func(int a, float b)，但是程序执行的时候却调用了void func(int a, int b)，这种错误 很难发现，因为在编译的时候没有报错。
-如果我们把main.cpp改成下面的：
       
     </div>
   </div>

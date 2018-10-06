@@ -22,6 +22,127 @@
     </item>
     
     <item>
+      <title>线上nginx错误日志追查</title>
+      <link>https://checkking.github.io/post/arch/nginx_probs1/</link>
+      <pubDate>Mon, 10 Apr 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/arch/nginx_probs1/</guid>
+      <description>问题描述 线上机器有一台机器报警，说摸个url请求失败率达到25%，等到线上机器查看nginx错误日志，发现下面的滚屏；
+2017/04/10 18:00:28 [alert] 2378#0: *35137710183 socket() failed (24: Too many open files) while connecting to upstream, client: 202.69.12.16, server: api.mobojoy.baidu.com, request: &amp;quot;GET /index.php?r=adfb/list&amp;amp;al=847dd82e152ec6ddeb104ba8439a684d&amp;amp;l=06e298ac92c301027067eea9a540dff4&amp;amp;p=48cfe1bbaabf62b82e4f979f4cbeb44f&amp;amp;hp=com.dianxinos.dxbs&amp;amp;lc=xiaobu_yz_gl_PRE_FREE&amp;amp;sdk=49 HTTP/1.1&amp;quot;, upstream: &amp;quot;fastcgi://127.0.0.1:9000&amp;quot;, host: &amp;quot;----&amp;quot; 2017/04/10 18:00:29 [crit] 2378#0: accept4() failed (24: Too many open files)  并且查看各个进程占用fd的情况：
+$ lsof -n|awk &#39;{print $2}&#39;|sort|uniq -c|sort -nr|more 10259 2378 7520 16505 4273 5091 2661 5098 2508 5093 2201 5084 2183 5089 2001 5117 1934 5095 1927 5105 1911 5108 1906 5104 1809 5100 1713 5082 1631 5106 1336 5102  第一列为占用fd数，第二列为进程id，第一行就是nginx进程.</description>
+    </item>
+    
+    <item>
+      <title>Locality-aware load balancing</title>
+      <link>https://checkking.github.io/post/cs/rpc_load_balance/</link>
+      <pubDate>Sun, 09 Apr 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/rpc_load_balance/</guid>
+      <description>概述 LALB全称Locality-aware load balancing，是一个能把请求及时、自动地送到延时最低的下游的负载均衡算法，特别适合混合部署环境。 LALB可以解决的问题： - 下游的机器配置不同，访问延时不同，round-robin和随机分流效果不佳。 - 下游服务和离线服务或其他服务混部，性能难以预测。 - 自动地把大部分流量送给同机部署的模块，当同机模块出问题时，再跨机器。 - 优先访问本机房服务，出问题时再跨机房。
+背景 最常见的分流算法是round robin和随机。这两个方法的前提是下游的机器和网络都是类似的，但在目前的线上环境下，特别是混部的产品线中，已经很难成立，因为： - 每台机器运行着不同的程序组合，并伴随着一些离线任务，机器的可用资源在持续动态地变化着。 - 机器配置不同。 - 网络延时不同。
+这些问题其实一直有，但往往被OP辛勤的机器监控和替换给隐藏了。框架层面也有过一些努力，比如我厂UB框架中的WeightedStrategy是根据下游的cpu占用率来进行分流，但明显地它解决不了延时相关的问题，甚至cpu的问题也解决不了：因为它被实现为定期reload一个权值列表，可想而知更新频率高不了，等到负载均衡反应过来，一大堆请求可能都超时了。并且这儿有个数学问题：怎么把cpu占用率转为权值。假设下游差异仅仅由同机运行的其他程序导致，机器配置和网络完全相同，两台机器权值之比是cpu idle之比吗？假如是的，当我们以这个比例给两台机器分流之后，它们的cpu idle应该会更接近对吧？而这会导致我们的分流比例也变得接近，从而使两台机器的cpu idle又出现差距。你注意到这个悖论了吗？这些因素使得这类算法的实际效果和那两个基本算法没什么差距，甚至更差，用者甚少。
+我们需要一个能自适应下游负载、规避慢节点的通用分流算法。
+Locality-aware Locality-aware load balancing，能根据下游节点的负载分配流量，还能快速规避失效的节点，在很大程度上，这种算法的延时也是全局最优的。基本原理非常简单：
+以下游节点的吞吐除以延时作为分流权值。  比如只有两台下游节点，W代表权值，QPS代表吞吐，L代表延时，那么W1 = QPS1 / L1和W2 = QPS2 / L2分别是这两个节点的分流权值，分流时随机数落入的权值区间就是流量的目的地了。
+一种分析方法如下：
+ 稳定状态时的QPS显然和其分流权值W成正比，即W1 / W2 ≈ QPS1 / QPS2。 根据分流公式又有：W1 / W2 = QPS1 / QPS2 * (L2 / L1)。  故稳定状态时L1和L2应当是趋同的。当L1小于L2时，节点1会更获得相比其QPS1更大的W1，从而在未来获得更多的流量，直到其延时高于平均值或没有更多的流量。
+注意这个算法并不是按照延时的比例来分流，不是说一个下游30ms，另一个60ms，它们的流量比例就是60 / 30。而是30ms的节点会一直获得流量直到它的延时高于60ms，或者没有更多流量了。以下图为例，曲线1和曲线2分别是节点1和节点2的延时与吞吐关系图，随着吞吐增大延时会逐渐升高，接近极限吞吐时，延时会飙升。左下的虚线标记了QPS=400时的延时，此时虽然节点1的延时有所上升，但还未高于节点2的基本延时（QPS=0时的延时），所以所有流量都会分给节点1，而不是按它们基本延时的比例（图中大约2:1）。当QPS继续上升达到1600时，分流比例会在两个节点延时相等时平衡，图中为9 : 7。很明显这个比例是高度非线性的，取决于不同曲线的组合，和单一指标的比例关系没有直接关联。在真实系统中，延时和吞吐的曲线也在动态变化着，分流比例更加动态。</description>
+    </item>
+    
+    <item>
+      <title>读《技术人员的发展之路》之感</title>
+      <link>https://checkking.github.io/post/mind/tech_road/</link>
+      <pubDate>Sun, 09 Apr 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/mind/tech_road/</guid>
+      <description>晚上在规划自己接下来的工作和学习时，有些疑惑，最大的疑惑是对于目前的工作，业务方面和技术方面自己一点都不感兴趣的情况下，要不要选择离职，或者不离职的情况下，怎么应对目前工作内容多，对自己成长没有太大帮助的工作内容。
+我一直比较纠结的是，我一直舍不多公司内部的技术资源，有很多可以学习的资料，目前来说这些技术没有成为自己的一个体系，出去也不一定能找到一份很满意的工作。还是挺想再积累一段时间再走。
+但是现在每天被工作琐碎的工作内容所困扰，占用了自己全部的工作时间，回家之后就很累，根本没有时间给自己充电，而且这些活是永远干不完的。这样自己的危机感就会越来越大。选择不加班对于工作又会有愧疚感，觉得是不负责任的一种表现，怕影响自己的晋升。
+但是读了陈皓老师的《技术人员的发展之路》，才豁然开朗，我决定不再加班了。不会为了自己在领导或者其他员工心中的印象，不用在意当前的晋升和升职了。
+当前阶段我觉得自己最重要的事是提高自己的学习能力和解决难题的能力。而《技术人员的发展之路》中的一段话，让我醍醐灌顶，找到了当前自己所面临的问题的解决方案：
+如果你不幸呆在了一个搬砖的地方，天天被业务压得喘不过气来，我建议你宁可让你的项目延期被老板骂，也要把时间挤出来努力学习基础知识，多掌握一些技术（很多技术在思路上是相通的），然后才能有机会改变自己目前的状况。因为，比起你的个人未来，项目延期被老板骂、绩效不好拿不到奖金，都不是什么事儿。  他还提到的追求自由的生活:
+第一层自由——工作自由。人的第一层自由的境界是——“工作自由”，我到不是说你在工作单位上可以很自由，虽然有特例，但并不普遍。我想说的“工作自由”是——你不会有失业危机感了。也就是说，你成了各个公司的抢手货，你不但不愁找不到工作，而且你是完全不愁找不到好工作。试想一下，如果是工作来找你，一方面，你就有真正意义上的工作选择权了，另一方面，你都不愁工作了，你完全就可以随时离职去干你想干的事了。此时，你就达到了“工作自由”。 第二层自由——技能自由。工作自由已是不错，不过前提是你还是需要依赖于别人提供的工作机会。而技能自由则是你可以用自己的技能养活自己，而不需要去公司里工作。也就是所谓的自由职业者了，社会上，这样的人也不少，比如，一些健身体育教练、设计师、翻译者、作者……这些都可以算是自由职业者，程序员这个职业中只要不是搬砖的，有想法的，就有可以成为自由积业者的潜质，想一想，你拥有的编程能力，其实是一种创造的能力，也就是创造力，只要你Make Something People Want（YC创业公司的slogan），你是完全可以通过自己的技能来养活自己的。如果你通过某些自动化的东西，或是你在App上做了一个软件个体户，让自己的收入不断，甚至你做了一个开源软件，社区每个月都给你捐款捐到比你打工挣的还多，那么你就真正的有了技能自由了。 第三层自由——物质自由。我把财务自由换了一种说法。我个人觉得，除了有个好爸爸之外这种特例的情况，如果你想有物质自由的话，本质上来说，你一定要学会投资，投资不一定是你的钱，时间也是一种财富，年轻更是，你怎么投资你的时间还有你的青春？你要把你的投资投到什么样的事，什么样的人？对于投资这个事，风险也比较大。但是，人生不敢冒险可能才是最大的冒险。这个世界有很多技术不是你能看书学来的，而要只能在实战中学会的，比如：游泳。投资可能也是一种。只有真正懂投资的人，或是运气非常好的人，才可能实现物质自由。  这个观点也是我所非常赞同的。</description>
+    </item>
+    
+    <item>
+      <title>Timer Keeping</title>
+      <link>https://checkking.github.io/post/cs/timer_keeping/</link>
+      <pubDate>Sat, 08 Apr 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/timer_keeping/</guid>
+      <description>在几点几分做某件事是RPC框架的基本需求，这件事比看上去难。
+让我们先来看看系统提供了些什么： posix系统能以signal方式告知timer触发，不过signal逼迫我们使用全局变量，写async-signal-safe的函数，在面向用户的编程框架中，我们应当尽力避免使用signal。linux自2.6.27后能以fd方式通知timer触发，这个fd可以放到epoll中和传输数据的fd统一管理。唯一问题是：这是个系统调用，且我们不清楚它在多线程下的表现。
+为什么这么关注timer的开销?让我们先来看一下RPC场景下一般是怎么使用timer的：
+ 在发起RPC过程中设定一个timer，在超时时间后取消还在等待中的RPC。几乎所有的RPC调用都有超时限制，都会设置这个timer。 RPC结束前删除timer。大部分RPC都由正常返回的response导致结束，timer很少触发。  你注意到了么，在RPC中timer更像是”保险机制”，在大部分情况下都不会发挥作用，自然地我们希望它的开销越小越好。一个几乎不触发的功能需要两次系统调用似乎并不理想。那在应用框架中一般是如何实现timer的呢？谈论这个问题需要区分“单线程”和“多线程”:
+ 在单线程框架中，比如以libevent, libev为代表的eventloop类库，或以GNU Pth, StateThreads为代表的coroutine / fiber类库中，一般是以小顶堆记录触发时间。epoll_wait前以堆顶的时间计算出参数timeout的值，如果在该时间内没有其他事件，epoll_wait也会醒来，从堆中弹出已超时的元素，调用相应的回调函数。整个框架周而复始地这么运转，timer的建立，等待，删除都发生在一个线程中。只要所有的回调都是非阻塞的，且逻辑不复杂，这套机制就能提供基本准确的timer。不过就像Threading Overview中说的那样，这不是RPC的场景。
+ 在多线程框架中，任何线程都可能被用户逻辑阻塞较长的时间，我们需要独立的线程实现timer，这种线程我们叫它TimerThread。一个非常自然的做法，就是使用用锁保护的小顶堆。当一个线程需要创建timer时，它先获得锁，然后把对应的时间插入堆，如果插入的元素成为了最早的，唤醒TimerThread。TimerThread中的逻辑和单线程类似，就是等着堆顶的元素超时，如果在等待过程中有更早的时间插入了，自己会被插入线程唤醒，而不会睡过头。这个方法的问题在于每个timer都需要竞争一把全局锁，操作一个全局小顶堆，就像在其他文章中反复谈到的那样，这会触发cache bouncing。同样数量的timer操作比单线程下的慢10倍是非常正常的，尴尬的是这些timer基本不触发。
+  我们重点谈怎么解决多线程下的问题。
+一个惯例思路是把timer的需求散列到多个TimerThread，但这对TimerThread效果不好。注意我们上面提及到了那个“制约因素”：一旦插入的元素是最早的，要唤醒TimerThread。假设TimerThread足够多，以至于每个timer都散列到独立的TImerThread，那么每次它都要唤醒那个TimerThread。 “唤醒”意味着触发linux的调度函数，触发上下文切换。在非常流畅的系统中，这个开销大约是3-5微秒，这可比抢锁和同步cache还慢。这个因素是提高TimerThread扩展性的一个难点。多个TimerThread减少了对单个小顶堆的竞争压力，但同时也引入了更多唤醒。
+另一个难点是删除。一般用id指代一个Timer。通过这个id删除Timer有两种方式：1.抢锁，通过一个map查到对应timer在小顶堆中的位置，定点删除，这个map要和堆同步维护。2.通过id找到Timer的内存结构，做个标记，留待TimerThread自行发现和删除。第一种方法让插入逻辑更复杂了，删除也要抢锁，线程竞争更激烈。第二种方法在小顶堆内留了一大堆已删除的元素，让堆明显变大，插入和删除都变慢。
+第三个难点是TimerThread不应该经常醒。一个极端是TimerThread永远醒着或以较高频率醒过来（比如每1ms醒一次），这样插入timer的线程就不用负责唤醒了，然后我们把插入请求散列到多个堆降低竞争，问题看似解决了。但事实上这个方案提供的timer精度较差，一般高于2ms。你得想这个TimerThread怎么写逻辑，它是没法按堆顶元素的时间等待的，由于插入线程不唤醒，一旦有更早的元素插入，TimerThread就会睡过头。它唯一能做的是睡眠固定的时间，但这和现代OS scheduler的假设冲突：频繁sleep的线程的优先级最低。在linux下的结果就是，即使只sleep很短的时间，最终醒过来也可能超过2ms，因为在OS看来，这个线程不重要。一个高精度的TimerThread有唤醒机制，而不是定期醒。
+另外，更并发的数据结构也难以奏效，感兴趣的同学可以去搜索&amp;rdquo;concurrent priority queue&amp;rdquo;或&amp;rdquo;concurrent skip list&amp;rdquo;，这些数据结构一般假设插入的数值较为散开，所以可以同时修改结构内的不同部分。但这在RPC场景中也不成立，相互竞争的线程设定的时间往往聚集在同一个区域，因为程序的超时大都是一个值，加上当前时间后都差不多。
+这些因素让TimerThread的设计相当棘手。由于大部分用户的qps较低，不足以明显暴露这个扩展性问题，在r31791前我们一直沿用“用一把锁保护的TimerThread”。TimerThread是baidu-rpc在默认配置下唯一的高频竞争点，这个问题是我们一直清楚的技术债。随着baidu-rpc在高qps系统中应用越来越多，是时候解决这个问题了。r31791后的TimerThread解决了上述三个难点，timer操作几乎对RPC性能没有影响，我们先看下性能差异。
+那新TimerThread是如何做到的？
+ 一个TimerThread而不是多个。 创建的timer散列到多个Bucket以降低线程间的竞争，默认12个Bucket。 Bucket内不使用小顶堆管理时间，而是链表 + nearest_run_time字段，当插入的时间早于nearest_run_time时覆盖这个字段，之后去和全局nearest_run_time（和Bucket的nearest_run_time不同）比较，如果也早于这个时间，修改并唤醒TimerThread。链表节点在锁外使用ResourcePool分配。 删除时通过id直接定位到timer内存结构，修改一个标志，timer结构总是由TimerThread释放。 TimerThread被唤醒后首先把全局nearest_run_time设置为几乎无限大(max of int64)，然后取出所有Bucket内的链表，并把Bucket的nearest_run_time设置为几乎无限大(max of int64)。TimerThread把未删除的timer插入小顶堆中维护，这个堆就它一个线程用。在每次运行回调或准备睡眠前都会检查全局nearest_run_time， 如果全局更早，说明有更早的时间加入了，重复这个过程。  这里勾勒了TimerThread的大致工作原理，工程实现中还有不少细节问题，具体请阅读timer_thread.h和timer_thread.cpp。
+struct TimerThreadOptions { // Scheduling requests are hashed into different bucket to improve // scalability. However bigger num_buckets may NOT result in more scalable // schedule() because bigger values also make each buckets more sparse // and more likely to lock the global mutex.</description>
+    </item>
+    
+    <item>
+      <title>Timer定时器的设计和实现</title>
+      <link>https://checkking.github.io/post/cs/timer_impl/</link>
+      <pubDate>Sat, 08 Apr 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/timer_impl/</guid>
+      <description>定时器 在一般的服务端程序设计中，与时间有关的常见任务有：
+ 获取当前时间，计算时间间隔 时区转换与日期计算；把纽约当地时间转换成上海当地时间；2011-02-05之后的100天是几月几号星期几;等等。 定时操作，比如在预定的时间执行任务，或者在一段延时之后执行任务。  这里我们讨论第3项。Linux计时函数有下面这些：
+ time(2) / time_t (s) ftime(3) / struct timeb (ms) gettimeofday(2) / struct timeval (us) clock_gettime(2) / struct timespec (ns)  定时函数，用于让程序等待一段时间或安排计划任务：
+ sleep(3) alarm(2) usleep(3) nanosleep(2) clock_nanosleep(2) gettimer(2) / settimer(2) timer_create(2) / timer_settime(2) / timer_gettime(2) / timer_delete(2) timerfd_create(2) / timerfd_gettime(2) / timerfd_settime(2)  我的取舍如下：
+ (计时) 只使用gettimeofday(2)来获取当前时间 (定时) 只使用timerfd_*系列函数.  因为，gettimeofday(2)的精度足够，timerfd_create(2) 把时间变成一个文件描述符，该“文件”在定时器超时那一刻变得可读，这样就能很方便地融入select(2)/poll(2)框架中，用统一的方式来处理IO事件和超时事件。
+定时器数据结构 TimerQueue需要高效地组织目前尚未到期的Timer，能够快速地根据当前时间找到已经到期的Timer，也要能高效添加和删除Timer。最简单的TimerQueue以按照到期时间排好序的线性表为数据结构，查找复杂度为O(N)。
+另外一种做法是用大顶堆或小顶堆，这样复杂度降为O(logN)，但是C++标准库的make_heap()等函数不能高效地删除heap中间的某个元素，需要我们自己实现。
+还有一种做法是使用二叉搜索树(如std::set/std::map)，把Timer按到期时间先后排好序。操作的复杂度仍然是O(logN)，不过memeory locality比heap要差一些,实际速度可能略慢。 但是我们不能够直接用map，因为这样无法处理两个Timer到期时间相同的情况。可以用std::pair为key, 这样即便两个Timer到期时间相同，他们的地址也是不同的。下面是TimerQueue的接口:
+class TimerQueue : boost::noncopyable { public: TimerQueue(EventLoop* loop); ~TimerQueue(); /// /// Schedules the callback to be run at given time, /// repeats if @c interval &amp;gt; 0.</description>
+    </item>
+    
+    <item>
+      <title>如何限制服务器的最大并发连接数</title>
+      <link>https://checkking.github.io/post/cs/connection_number_limitation/</link>
+      <pubDate>Sat, 08 Apr 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/connection_number_limitation/</guid>
+      <description>在网络编程中，我们通常用Reactor模式来处理并发连接。listening scoket是一种特殊的IO对象，当有新连接达到时，此listening文件描述符变得可读(POLLIN),epoll_wait返回这一事件。然后我们用accept(2)系统返回获得新连接的socket文件描述符。
+serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) serversocket.bind((&#39;&#39;, 2006)) serversocket.listen(5) serversocket.setblocking(0) poll = select.poll() poll.register(serversocket.fileno(), select.POLLIN) connections = {} while True: events = poll.poll(1000) for fileno, event in events: # (1) if fileno == serversocket.fileno(): (clientsocket, address) = serversocket.accept() # (2) clientsocket.setblocking(0) poll.register(clientsocket.fileno(), select.POLLIN) connections[clientsocket.fileno()] = client.socket elif event &amp;amp; select.POLLIN: # ...  假设(2)处返回EMFILE该如何应对？这意味着本进程的文件描述符已经达到上限，无法为新连接建立socket文件描述符。但是，既然没有scoekt文件描述符来表示连接，我们就无法close(2)它。程序继续运行，回到(1)处再一次调用epoll_wait，这时候epoll_wait会立刻返回，因为新连接还等待处理，listening fd还是可读的。这样程序就立刻陷入busy loop,CPU占用率接近100%. 这既影响同一event loop上的连接，也影响同一机器上的其他服务。
+这种情况下，有以下几种解决方案：
+ 提高进程的文件描述符数目。治标不治本。 死等。 退出程序，小题大作 关闭listening fd，那什么时候重新打开呢？ 改用edge trigger，如果漏掉一次accept(2),程序再也不会收到新连接。 准备一个空闲的文件描述符，遇到这种情况，先关闭这个空闲描述符，获得一个文件描述符的名额；再accept(2)拿到新socket连接的描述符；随后立刻close(2)它，这样就优雅地断开了客户端连接；最后重新打开一个空闲文件，把&amp;rdquo;坑&amp;rdquo;站住，以备再次出现这种情况时使用。  私以为第6种方案最佳，muduo的Acceptor正是用这种方案，相关代码如下：</description>
+    </item>
+    
+    <item>
+      <title>用timing wheel踢掉空闲连接</title>
+      <link>https://checkking.github.io/post/cs/timer_wheel/</link>
+      <pubDate>Sat, 08 Apr 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/timer_wheel/</guid>
+      <description>如果一个连接连续几秒内没有收到数据，就把它断开，为此有两种简单、粗暴的做法：
+ 每个连接保存&amp;rdquo;最后收到数据的时间lastReceiveTime&amp;ldquo;， 然后用一个定时器，每秒 遍历一遍所有的连接，断开那些(now - connection.lastReceiveTime) &amp;gt; 8s的connection。 这种做法全局只有一个repeated timer, 不过每次timeout都要检查全部连接，如果连接数目 比较大(几千万), 这一步可能比较费时。 每个连接设置一个one-shot timer, 超时定为8s, 在超时的时候就断开本连接。当然， 每次收到数据要去更新timer。这种做法需要很多one-shot timer, 会频繁地更新timers。如果连接数目比较大，可能对EventLoop的 TimerQueue造成压力。  使用timing wheel能够避免上述两种做法的缺点。timing wheel可以翻译为&amp;rdquo;时间轮盘&amp;rdquo;或&amp;rdquo;刻度盘&amp;rdquo;。
+timing wheel原理 定时轮是一种数据结构，其主体是一个循环列表（circular buffer），每个列表中包含一个称之为槽（slot）的结构（附图）。 至于 slot 的具体结构依赖具体应用场景。 以本文开头所述的管理大量连接 timeout 的场景为例，描述一下 timing wheel的具体实现细节。
+定时轮的工作原理可以类比于始终，如上图箭头（指针）按某一个方向按固定频率轮动，每一次跳动称为一个 tick。 这样可以看出定时轮由个3个重要的属性参数，ticksPerWheel（一轮的tick数），tickDuration（一个tick的持续时间） 以及 timeUnit（时间单位），例如 当ticksPerWheel=60，tickDuration=1，timeUnit=秒，这就和现实中的始终的秒针走动完全类似了。
+这里给出一种简单的实现方式，指针按 tickDuration 的设置进行固定频率的转动，其中的必要约定如下：
+ 新加入的对象总是保存在当前指针转动方向上一个位置 相等的对象仅存在于一个 slot 中 指针转动到当前位置对应的 slot 中保存的对象就意味着 timeout 了  在 Timing Wheel 模型中包含4种操作：
+Client invoke：
+ START_TIMER(Interval, Request_ID, Expiry_Action) STOP_TIMER(Request_ID)  Timer tick invoke：</description>
+    </item>
+    
+    <item>
+      <title>protobuf序列化编码实例分析</title>
+      <link>https://checkking.github.io/post/cs/pb_serialize/</link>
+      <pubDate>Fri, 07 Apr 2017 21:07:16 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/cs/pb_serialize/</guid>
+      <description>这几天把google protobuf官方文档通读了一遍, 总觉得对message序列化后的内容理解的不够透彻，因此动手操作一遍，分析一下message序列化后的内容。程序代码是官网的。
+ proto文件内容  // file addressbook.proto syntax = &amp;quot;proto3&amp;quot;; package tutorial; message Person { string name = 1; int32 id = 2; // Unique ID number for this person. string email = 3; enum PhoneType { HOME = 0; MOBILE = 1; WORK = 2; } message PhoneNumber { string number = 1; PhoneType type = 2; } repeated PhoneNumber phone = 4; } message AddressBook { repeated Person person = 1; } service SearchService { rpc Search (Person) returns (Person); }   序列化写入程序  #include &amp;lt;iostream&amp;gt; #include &amp;lt;fstream&amp;gt; #include &amp;lt;string&amp;gt; #include &amp;quot;addressbook.</description>
+    </item>
+    
+    <item>
       <title>protobuf之ZeroCopy</title>
       <link>https://checkking.github.io/post/cs/pb_zero_copy/</link>
       <pubDate>Tue, 21 Mar 2017 21:07:16 +0800</pubDate>
