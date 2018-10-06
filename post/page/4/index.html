@@ -72,6 +72,16 @@
   
   
   <div>
+    <h2><a href="https://checkking.github.io/post/nginx/nginx3/">nginx location &amp; rewrite 配置总结</a></h2>
+    <div class="post-style">
+      
+      location正则写法 一个示例：
+location = / { # 精确匹配 / ，主机名后面不能带任何字符串 [ configuration A ] } location / { # 因为所有的地址都以 / 开头，所以这条规则将匹配到所有请求 # 但是正则和最长字符串会优先匹配 [ configuration B ] } location /documents/ { # 匹配任何以 /documents/ 开头的地址，匹配符合以后，还要继续往下搜索 # 只有后面的正则表达式没有匹配到时，这一条才会采用这一条 [ configuration C ] } location ~ /documents/Abc { # 匹配任何以 /documents/Abc 开头的地址，匹配符合以后，还要继续往下搜索 # 只有后面的正则表达式没有匹配到时，这一条才会采用这一条 [ configuration CC ] } location ^~ /images/ { # 匹配任何以 /images/ 开头的地址，匹配符合以后，停止往下搜索正则，采用这一条。 [ configuration D ] } location ~* .
+      
+    </div>
+  </div>
+  
+  <div>
     <h2><a href="https://checkking.github.io/post/cs/singals/">信号量处理总结</a></h2>
     <div class="post-style">
       
@@ -112,13 +122,6 @@ struct stat { dev_t st_dev; /</em> ID of device containing file <em>/ ino_t st_i
       为什么需要前向声明? 编译器确保在文件中使用的函数没有拼写错误或参数个数不对，因此它坚持要在使用函数之前要看到它的声明， 也就是为了方便编译器生成目标代码，不至于编译成功，运行的时候却失败。比如下面的例子：
 // file func.cpp #include &lt;stdio.h&gt; void func(int a, float b) { (void)a; (void)b; printf(&quot;func(int a, float b)\n&quot;); }  // file main.cpp #include &lt;stdio.h&gt; void func(int a, int b) { (void)a; (void)b; printf(&quot;func(int a, int b)\n&quot;); } // void func(int a, float b); int main(int argc, char** argv) { func(1, 3.0f); return 0; }  我们本意想调用void func(int a, float b)，但是程序执行的时候却调用了void func(int a, int b)，这种错误 很难发现，因为在编译的时候没有报错。
 如果我们把main.cpp改成下面的：
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/lang/cpp4/"></a></h2>
-    <div class="post-style">
       
     </div>
   </div>

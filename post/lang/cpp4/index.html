@@ -42,14 +42,15 @@
   
   <meta property="og:site_name" content="Check King&#39;s Blog">
   <meta property="og:url" content="https://checkking.github.io/post/lang/cpp4/">
-  <meta property="og:title" content=" | Check King&#39;s Blog">
+  <meta property="og:title" content="为什么析构函数不能抛出异常 | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
+  <meta property="article:published_time" content="2017-05-13T21:07:16&#43;08:00">
   
-  
+  <meta property="article:modified_time" content="2017-05-13T21:07:16&#43;08:00">
   
 
-  <title> | Check King&#39;s Blog</title>
+  <title>为什么析构函数不能抛出异常 | Check King&#39;s Blog</title>
 
   
 
@@ -128,7 +129,7 @@
 </div>
 				<article class="post" itemscope itemtype="http://schema.org/Article">
   <div class="post-container">
-    <h1 itemprop="name"><a href="https://checkking.github.io/post/lang/cpp4/"></a></h1>
+    <h1 itemprop="name"><a href="https://checkking.github.io/post/lang/cpp4/">为什么析构函数不能抛出异常</a></h1>
 
     
       
@@ -137,8 +138,8 @@
 
   <span class="post-date">
     
-    <time datetime="0001-01-01 00:00:00 &#43;0000 UTC" itemprop="datePublished dateModified">
-      Jan 1, 0001
+    <time datetime="2017-05-13 21:07:16 &#43;0800 CST" itemprop="datePublished dateModified">
+      May 13, 2017
     </time>
   </span>
 
@@ -150,19 +151,11 @@
 
     <div class="post-style" itemprop="articleBody">
       
-      
-
-<p>s&mdash;
-title: &ldquo;为什么析构函数不能抛出异常&rdquo;
-date: 2017-05-13T21:07:16+08:00</p>
-
-<h2 id="draft-false">draft: false</h2>
-
-<ol>
+      <ul>
 <li><p>通常析构函数中会做一些内存、资源的释放操作，如果析构函数抛出异常，则在异常点之后的一些释放操作就不能执行了，导致资源泄露.</p></li>
 
 <li><p>可能会导致连续抛出异常，程序由于某种原因抛出异常，而异常导致析构函数的调用，析构函数如果再抛出异常，一个异常没有处理，又来一个，会造成程序崩溃的问题。</p></li>
-</ol>
+</ul>
 
 <p>参考：《more effective C++》</p>
 
@@ -179,7 +172,7 @@ date: 2017-05-13T21:07:16+08:00</p>
   <ul class="share">
     <li>
       <a class="twitter"
-         href="https://twitter.com/intent/tweet?text=&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2flang%2fcpp4%2f"
+         href="https://twitter.com/intent/tweet?text=%e4%b8%ba%e4%bb%80%e4%b9%88%e6%9e%90%e6%9e%84%e5%87%bd%e6%95%b0%e4%b8%8d%e8%83%bd%e6%8a%9b%e5%87%ba%e5%bc%82%e5%b8%b8&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2flang%2fcpp4%2f"
          target="_blank" rel="noopener">
         <i class="fa fa-twitter"></i>
       </a>
@@ -193,14 +186,14 @@ date: 2017-05-13T21:07:16+08:00</p>
     </li>
     <li>
       <a class="linkedin"
-         href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2flang%2fcpp4%2f&amp;title="
+         href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2flang%2fcpp4%2f&amp;title=%e4%b8%ba%e4%bb%80%e4%b9%88%e6%9e%90%e6%9e%84%e5%87%bd%e6%95%b0%e4%b8%8d%e8%83%bd%e6%8a%9b%e5%87%ba%e5%bc%82%e5%b8%b8"
          target="_blank" rel="noopener">
         <i class="fa fa-linkedin"></i>
       </a>
     </li>
     <li>
       <a class="email"
-         href="mailto:?subject=&amp;body=https%3a%2f%2fcheckking.github.io%2fpost%2flang%2fcpp4%2f">
+         href="mailto:?subject=%e4%b8%ba%e4%bb%80%e4%b9%88%e6%9e%90%e6%9e%84%e5%87%bd%e6%95%b0%e4%b8%8d%e8%83%bd%e6%8a%9b%e5%87%ba%e5%bc%82%e5%b8%b8&amp;body=https%3a%2f%2fcheckking.github.io%2fpost%2flang%2fcpp4%2f">
         <i class="fa fa-envelope"></i>
       </a>
     </li>

@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-04-09T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-04-10T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,17 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/arch/nginx_probs1/">线上nginx错误日志追查</a></h2>
+    <div class="post-style">
+      
+      问题描述 线上机器有一台机器报警，说摸个url请求失败率达到25%，等到线上机器查看nginx错误日志，发现下面的滚屏；
+2017/04/10 18:00:28 [alert] 2378#0: *35137710183 socket() failed (24: Too many open files) while connecting to upstream, client: 202.69.12.16, server: api.mobojoy.baidu.com, request: &quot;GET /index.php?r=adfb/list&amp;al=847dd82e152ec6ddeb104ba8439a684d&amp;l=06e298ac92c301027067eea9a540dff4&amp;p=48cfe1bbaabf62b82e4f979f4cbeb44f&amp;hp=com.dianxinos.dxbs&amp;lc=xiaobu_yz_gl_PRE_FREE&amp;sdk=49 HTTP/1.1&quot;, upstream: &quot;fastcgi://127.0.0.1:9000&quot;, host: &quot;&mdash;-&quot; 2017/04/10 18:00:29 [crit] 2378#0: accept4() failed (24: Too many open files)  并且查看各个进程占用fd的情况：
+$ lsof -n|awk &lsquo;{print $2}&rsquo;|sort|uniq -c|sort -nr|more 10259 2378 7520 16505 4273 5091 2661 5098 2508 5093 2201 5084 2183 5089 2001 5117 1934 5095 1927 5105 1911 5108 1906 5104 1809 5100 1713 5082 1631 5106 1336 5102  第一列为占用fd数，第二列为进程id，第一行就是nginx进程.
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/cs/rpc_load_balance/">Locality-aware load balancing</a></h2>
@@ -195,15 +206,6 @@ Descriptor Descriptor是对message类型定义的描述，包括message的名字
  获取所有字段的个数：int field_count() const 获取单个字段描述类型FieldDescriptor的接口有很多个，例如  const FieldDescriptor* field(int index) const;//根据定义顺序索引获取 const FieldDescriptor* FindFieldByNumber(int number) const;//根据tag值获取 const FieldDescriptor* FindFieldByName(const string&amp; name) const;//根据field name获取  FieldDescriptor FieldDescriptor描述message中的单个字段，例如字段名，字段属性(optional/required/repeated)等。 对于proto定义里的每种类型，都有一种对应的C++类型，例如：
 enum CppType { CPPTYPE_INT32 = 1, //TYPE_INT32, TYPE_SINT32, TYPE_SFIXED32 }  获取类型的label属性：
 enum Label { LABEL_OPTIONAL = 1, //optional LABEL_REQUIRED = 2, //required LABEL_REPEATED = 3, //repeated MAX_LABEL = 3, //Constant useful for defining lookup tables indexed by Label.
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/cs/pb_update_message_roles/">protobuf更新Message原则</a></h2>
-    <div class="post-style">
-      
-      If an existing message type no longer meets all your needs – for example, you&rsquo;d like the message format to have an extra field – but you&rsquo;d still like to use code created with the old format, don&rsquo;t worry! It&rsquo;s very simple to update message types without breaking any of your existing code. Just remember the following rules: - Don&rsquo;t change the numeric tags for any existing fields. - Any new fields that you add should be optional or repeated.
       
     </div>
   </div>

@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-03-19T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-03-21T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,15 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/cs/pb_update_message_roles/">protobuf更新Message原则</a></h2>
+    <div class="post-style">
+      
+      If an existing message type no longer meets all your needs – for example, you&rsquo;d like the message format to have an extra field – but you&rsquo;d still like to use code created with the old format, don&rsquo;t worry! It&rsquo;s very simple to update message types without breaking any of your existing code. Just remember the following rules: - Don&rsquo;t change the numeric tags for any existing fields. - Any new fields that you add should be optional or repeated.
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/cs/pb_internal/">Google Protobuff编码</a></h2>
@@ -177,16 +186,6 @@ location /conf { alias /usr/local/nginx/conf; }  在URI向实际文件路径的�
 location .~ ^/test/(\w+).(\w+)$ { alias /usr/local/nginx/$2/$1.$2; }  这样，请求在访问/test/nginx.conf时，nginx会返回/usr/local/nginx/conf/nginx.conf文件中的内容。
 try_files 语法： try_files path1 [path2] uri; 配置块： server、location try_files后要跟若干路径，如path1 path2&hellip;，而且最后必须要有uri参数，意义如下：尝试按照顺序访问每一个path,如果可以有效地读取，就直接返回这个path对应的文件结束请求，否则继续向下访问。如果所有path都找不到有效的文件，就重定向到最后的参数uri上。如：
 try_files /system/maintenance.html $uri $uri/index.html $uri.html @other; location @other { proxy_pass <a href="http://backend" target="_blank">http://backend</a>; }  文件操作的优化  sendfile 系统调用 语法: sendfile on|off;  默认：sendfile off;  配置快： http、server、location  可以启用Linux上的sendfile系统调用来发送文件，它减少了内核态与用户态之间的两次内存复制，这样就会从 磁盘中读取文件后直接在内核态发送到网卡设备，提高了发送文件的效率。 AIO系统调用 此配置项表示是否在FreeBSD或Linux上启用内核级别的异步文件I/O功能。注意，它与sendfile功能是互斥的。 directio 语法：directio size|off; 默认：directio off; 配置快： http、server、location  此配置项在FreeBSD和Linux系统上使用O_DIRECT选项去读取文件，缓冲区大小为size, 通常对大文件的读取速度有优化作用.
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/nginx/nginx3/">nginx location &amp; rewrite 配置总结</a></h2>
-    <div class="post-style">
-      
-      location正则写法 一个示例：
-location = / { # 精确匹配 / ，主机名后面不能带任何字符串 [ configuration A ] } location / { # 因为所有的地址都以 / 开头，所以这条规则将匹配到所有请求 # 但是正则和最长字符串会优先匹配 [ configuration B ] } location /documents/ { # 匹配任何以 /documents/ 开头的地址，匹配符合以后，还要继续往下搜索 # 只有后面的正则表达式没有匹配到时，这一条才会采用这一条 [ configuration C ] } location ~ /documents/Abc { # 匹配任何以 /documents/Abc 开头的地址，匹配符合以后，还要继续往下搜索 # 只有后面的正则表达式没有匹配到时，这一条才会采用这一条 [ configuration CC ] } location ^~ /images/ { # 匹配任何以 /images/ 开头的地址，匹配符合以后，停止往下搜索正则，采用这一条。 [ configuration D ] } location ~* .
       
     </div>
   </div>

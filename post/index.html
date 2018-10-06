@@ -81,6 +81,13 @@
   </div>
   
   <div>
+    <h2><a href="https://checkking.github.io/post/lang/cpp4/">为什么析构函数不能抛出异常</a></h2>
+    <div class="post-style">
+      
+    </div>
+  </div>
+  
+  <div>
     <h2><a href="https://checkking.github.io/post/lang/cpp5/">阅读笔记-线程安全的对象生命周期管理</a></h2>
     <div class="post-style">
       
@@ -190,17 +197,6 @@ debug的用途 便于线上case追踪用，分析程序执行的每个环节。
       
       整体流程分析 先列出event模块相关定义的:
 static ngx_command_t ngx_events_commands[] = { { ngx_string(&quot;events&quot;), NGX_MAIN_CONF|NGX_CONF_BLOCK|NGX_CONF_NOARGS, ngx_events_block, 0, 0, NULL }, ngx_null_command }; static ngx_core_module_t ngx_events_module_ctx = { ngx_string(&quot;events&quot;), NULL, ngx_event_init_conf }; ngx_module_t ngx_events_module = { NGX_MODULE_V1, &amp;ngx_events_module_ctx, /* module context <em>/ ngx_events_commands, /</em> module directives <em>/ NGX_CORE_MODULE, /</em> module type <em>/ NULL, /</em> init master <em>/ NULL, /</em> init module <em>/ NULL, /</em> init process <em>/ NULL, /</em> init thread <em>/ NULL, /</em> exit thread <em>/ NULL, /</em> exit process <em>/ NULL, /</em> exit master */ NGX_MODULE_V1_PADDING };  在ngx_init_cycle函数中，有下面部分代码:
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/arch/nginx_probs1/">线上nginx错误日志追查</a></h2>
-    <div class="post-style">
-      
-      问题描述 线上机器有一台机器报警，说摸个url请求失败率达到25%，等到线上机器查看nginx错误日志，发现下面的滚屏；
-2017/04/10 18:00:28 [alert] 2378#0: *35137710183 socket() failed (24: Too many open files) while connecting to upstream, client: 202.69.12.16, server: api.mobojoy.baidu.com, request: &quot;GET /index.php?r=adfb/list&amp;al=847dd82e152ec6ddeb104ba8439a684d&amp;l=06e298ac92c301027067eea9a540dff4&amp;p=48cfe1bbaabf62b82e4f979f4cbeb44f&amp;hp=com.dianxinos.dxbs&amp;lc=xiaobu_yz_gl_PRE_FREE&amp;sdk=49 HTTP/1.1&quot;, upstream: &quot;fastcgi://127.0.0.1:9000&quot;, host: &quot;&mdash;-&quot; 2017/04/10 18:00:29 [crit] 2378#0: accept4() failed (24: Too many open files)  并且查看各个进程占用fd的情况：
-$ lsof -n|awk &lsquo;{print $2}&rsquo;|sort|uniq -c|sort -nr|more 10259 2378 7520 16505 4273 5091 2661 5098 2508 5093 2201 5084 2183 5089 2001 5117 1934 5095 1927 5105 1911 5108 1906 5104 1809 5100 1713 5082 1631 5106 1336 5102  第一列为占用fd数，第二列为进程id，第一行就是nginx进程.
       
     </div>
   </div>
