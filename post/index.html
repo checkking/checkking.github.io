@@ -72,7 +72,7 @@
   
   
   <div>
-    <h2><a href="https://checkking.github.io/post/arch/cas/">Cas</a></h2>
+    <h2><a href="https://checkking.github.io/post/arch/cas/">使用CAS解决一个业务问题</a></h2>
     <div class="post-style">
       
       问题描述 最近项目遇到这样一个问题，有一个用mysql数据库表模拟的任务队列，生产者会往表中增加任务，消费者采用轮询的方式去获取任务。其中新加入的任务的状态为NEW(1)，当任务被拿走并处于计算中的状态为PENDING(2)，当任务处理成功的状态为SUCCESS(0)，当任务被处理失败的状态为FAILED(3)。消费者从轮询数据库，如果有NEW状态的任务，拿到任务，则修改状态为PENDING。问题是，有多个消费者同时去查询数据库表，并更新表项，存在并发问题。
