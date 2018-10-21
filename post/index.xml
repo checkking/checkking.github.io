@@ -6,10 +6,21 @@
     <description>Recent content in Posts on Check King&#39;s Blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <copyright>&amp;copy; Check King 2018</copyright>
-    <lastBuildDate>Fri, 20 Oct 2017 21:07:16 +0800</lastBuildDate>
+    <lastBuildDate>Sun, 21 Oct 2018 18:47:24 +0800</lastBuildDate>
     
 	<atom:link href="https://checkking.github.io/post/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Cas</title>
+      <link>https://checkking.github.io/post/arch/cas/</link>
+      <pubDate>Sun, 21 Oct 2018 18:47:24 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/arch/cas/</guid>
+      <description>问题描述 最近项目遇到这样一个问题，有一个用mysql数据库表模拟的任务队列，生产者会往表中增加任务，消费者采用轮询的方式去获取任务。其中新加入的任务的状态为NEW(1)，当任务被拿走并处于计算中的状态为PENDING(2)，当任务处理成功的状态为SUCCESS(0)，当任务被处理失败的状态为FAILED(3)。消费者从轮询数据库，如果有NEW状态的任务，拿到任务，则修改状态为PENDING。问题是，有多个消费者同时去查询数据库表，并更新表项，存在并发问题。
+初步解决 对于数据库并发问题，一个直觉的做法就是采用加锁的办法，因此采用下面这种方式实现:
+tx := db.Begin() tx = tx.Raw(&amp;quot;SELECT * FROM parser_job WHERE id=? FOR UPDATE&amp;quot;, job.Id).Scan(&amp;amp;job) if tx.RecordNotFound() { tx.Rollback() return nil, nil } if tx.Error != nil { logs.Errorf(&amp;quot;DequeJob db query failed, err:%s&amp;quot;, tx.Error.Error()) tx.Rollback() return nil, errors.New(tx.Error.Error()) } columns := make(map[string]interface{}, 0) columns[&amp;quot;status&amp;quot;] = common.STATUS_PENDING err := tx.Exec(&amp;quot;UPDATE parser_job SET status=? WHERE id=?&amp;quot;, common.STATUS_PENDING, job.Id).Error if err != nil { logs.Errorf(&amp;quot;DequeJob db update failed, err:%s&amp;quot;, err.</description>
+    </item>
     
     <item>
       <title>nginx配置管理源码解析</title>
