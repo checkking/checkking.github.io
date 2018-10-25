@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-04-15T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-04-16T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,13 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/nginx/nginx5/">为什么nginx默认使用ET模式的epoll</a></h2>
+    <div class="post-style">
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/arch/nginx_event_module/">nginx事件模块分析</a></h2>
@@ -190,16 +197,6 @@ Client invoke：
       
       这几天把google protobuf官方文档通读了一遍, 总觉得对message序列化后的内容理解的不够透彻，因此动手操作一遍，分析一下message序列化后的内容。程序代码是官网的。
  proto文件内容  // file addressbook.proto syntax = &quot;proto3&quot;; package tutorial; message Person { string name = 1; int32 id = 2; // Unique ID number for this person. string email = 3; enum PhoneType { HOME = 0; MOBILE = 1; WORK = 2; } message PhoneNumber { string number = 1; PhoneType type = 2; } repeated PhoneNumber phone = 4; } message AddressBook { repeated Person person = 1; } service SearchService { rpc Search (Person) returns (Person); }   序列化写入程序  #include &lt;iostream&gt; #include &lt;fstream&gt; #include &lt;string&gt; #include &quot;addressbook.
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/cs/pb_zero_copy/">protobuf之ZeroCopy</a></h2>
-    <div class="post-style">
-      
-      引言 我们在序列化、反序列化 Protobuf message 时为了最小化内存拷贝，可以实现其提供的 ZeroCopyStream（包括 ZeroCopyOutputStream 和 ZeroCopyInputStream）接口类，ZeroCopyStream 要求能够进行 buffer 的分配，这体现在一个名为 Next 的接口上，这样做的好处是避免进行内存的拷贝，为了方便理解，我们来看一下 ZeroCopyInputStream 和传统的 stream 的对比.
-典型的做法 /* 我们调用 input stream 的 Read 从内存中读取数据到 buffer * 这里进行了一次拷贝操作，也就是拷贝内存中的数据到 buffer 中 * 之后 DoSomething 才能处理此数据 <em>/ char buffer[BUFFER_SIZE]; input-&gt;Read(buffer, BUFFER_SIZE); DoSomething(buffer, BUFFER_SIZE);  ZeroCopyStream /</em> * 使用 Next 接口的做法，input stream 内部有责任提供（分配）buffer * 也就是说，DoSomething 可以直接操作内部的内存，而无需拷贝后再操作 * 这就避免了一次内存拷贝 <em>/ const void</em> buffer; int size; input-&gt;Next(&amp;buffer, &amp;size); DoSomething(buffer, size);  protbuff 相关接口 protobuf作为一个消息格式的利器，在io的接口设计上也非常巧妙，本文主要想介绍下其中ZeroCopy的思想以及用途。
       
     </div>
   </div>
