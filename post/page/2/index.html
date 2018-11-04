@@ -72,6 +72,13 @@
   
   
   <div>
+    <h2><a href="https://checkking.github.io/post/nginx/nginx6/">nginx so_reuseport</a></h2>
+    <div class="post-style">
+      
+    </div>
+  </div>
+  
+  <div>
     <h2><a href="https://checkking.github.io/post/nginx/nginx5/">为什么nginx默认使用ET模式的epoll</a></h2>
     <div class="post-style">
       
@@ -187,16 +194,6 @@ timing wheel原理 定时轮是一种数据结构，其主体是一个循环列�
  新加入的对象总是保存在当前指针转动方向上一个位置 相等的对象仅存在于一个 slot 中 指针转动到当前位置对应的 slot 中保存的对象就意味着 timeout 了  在 Timing Wheel 模型中包含4种操作：
 Client invoke：
  START_TIMER(Interval, Request_ID, Expiry_Action) STOP_TIMER(Request_ID)  Timer tick invoke：
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/cs/pb_serialize/">protobuf序列化编码实例分析</a></h2>
-    <div class="post-style">
-      
-      这几天把google protobuf官方文档通读了一遍, 总觉得对message序列化后的内容理解的不够透彻，因此动手操作一遍，分析一下message序列化后的内容。程序代码是官网的。
- proto文件内容  // file addressbook.proto syntax = &quot;proto3&quot;; package tutorial; message Person { string name = 1; int32 id = 2; // Unique ID number for this person. string email = 3; enum PhoneType { HOME = 0; MOBILE = 1; WORK = 2; } message PhoneNumber { string number = 1; PhoneType type = 2; } repeated PhoneNumber phone = 4; } message AddressBook { repeated Person person = 1; } service SearchService { rpc Search (Person) returns (Person); }   序列化写入程序  #include &lt;iostream&gt; #include &lt;fstream&gt; #include &lt;string&gt; #include &quot;addressbook.
       
     </div>
   </div>

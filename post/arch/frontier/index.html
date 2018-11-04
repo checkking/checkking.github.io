@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="generator" content="Hugo 0.49" />
+  <meta name="author" content="Check King">
+
+  
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Merriweather:400,700%7cOpen&#43;Sans:400,400italic,700%7cRoboto&#43;Mono%25!%28EXTRA%20*hugolib.PageOutput=Page%28/post/arch/frontier.md%29%29">
+  <link rel="stylesheet" href="/styles.css">
+  
+
+  
+
+  
+  <link rel="alternate" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  <link rel="feed" href="https://checkking.github.io/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/img/favicon/site.webmanifest">
+  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="icon" type="image/png" href="/img/icon.png">
+  <link rel="apple-touch-icon" type="image/png" href="/img/icon-192.png">
+
+  <link rel="canonical" href="https://checkking.github.io/post/arch/frontier/">
+
+  <meta property="twitter:card" content="summary_large_image">
+  
+  <meta property="twitter:site" content="@">
+  <meta property="twitter:creator" content="@">
+  
+  <meta property="og:site_name" content="Check King&#39;s Blog">
+  <meta property="og:url" content="https://checkking.github.io/post/arch/frontier/">
+  <meta property="og:title" content="阅读长链接服务架构总结 | Check King&#39;s Blog">
+  <meta property="og:locale" content="en-us">
+  
+  <meta property="article:published_time" content="2018-11-04T21:45:17&#43;08:00">
+  
+  <meta property="article:modified_time" content="2018-11-04T21:45:17&#43;08:00">
+  
+
+  <title>阅读长链接服务架构总结 | Check King&#39;s Blog</title>
+
+  
+
+</head>
+<body>
+
+<style type="text/css">
+
+.masthead-hero {
+  background-image: url("https://checkking.github.io/img/hero.jpg");
+}
+</style>
+
+<div class="masthead-hero"></div>
+
+
+<div id="main" role="main">
+  <div class="sidebar sticky" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <div class="author-avatar">
+    <a href="/">
+      <img src="/img/avatar.png" alt="Check King" itemprop="image">
+    </a>
+  </div>
+  <div class="author-content">
+    <h3 class="author-name" itemprop="name">Check King</h3>
+    <p class="author-bio" itemprop="description">A backend programmer.</p>
+  </div>
+  <div class="author-urls-wrapper">
+    <ul class="author-urls social-icons" aria-hidden="true">
+      <li itemprop="homeLocation" itemscope itemtype="http://schema.org/Place">
+        <span itemprop="name">Shenzhen China</span>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-instagram"></i>
+          Instagram
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-linkedin"></i>
+          LinkedIn
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="" target="_blank" rel="noopener">
+          <i class="fa fa-twitter"></i>
+          Twitter
+        </a>
+      </li>
+      
+      <li>
+        <a itemprop="sameAs" href="//github.com/checkking" target="_blank" rel="noopener">
+          <i class="fa fa-github"></i>
+          Github
+        </a>
+      </li>
+      
+    </ul>  
+  </div>
+</div>
+
+  <article class="page">
+		<div class="page_container">
+			<section class="page_content">
+				<div class="navbar-hero">
+	<nav>
+		<a href="/">Home</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/projects">Projects</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/blog">Blog</a>&nbsp&nbsp•&nbsp&nbsp
+		<a href="/about">About</a>
+	</nav>
+</div>
+				<article class="post" itemscope itemtype="http://schema.org/Article">
+  <div class="post-container">
+    <h1 itemprop="name"><a href="https://checkking.github.io/post/arch/frontier/">阅读长链接服务架构总结</a></h1>
+
+    
+      
+
+<div class="post-metadata">
+
+  <span class="post-date">
+    
+    <time datetime="2018-11-04 21:45:17 &#43;0800 CST" itemprop="datePublished dateModified">
+      Nov 4, 2018
+    </time>
+  </span>
+
+  
+
+</div>
+
+    
+
+    <div class="post-style" itemprop="articleBody">
+      
+      
+
+<h3 id="背景">背景</h3>
+
+<p>目前项目中用到了公司的长链接服务，抽空研究了一下公司长链接服务源码。
+如果没有长链接服务，一些消息推送等功能只能用短链接轮询，或者长链接轮询的方式。长链接能够很好的解决短轮询和长轮询的一些不足。</p>
+
+<h3 id="整体架构">整体架构</h3>
+
+<p><a href="https://images-cdn.shimo.im/L4vecWHirMESFFXB/grontier_arch.png!thumbnail" target="_blank">!架构图</a></p>
+
+<h3 id="数据流交互">数据流交互</h3>
+
+<p><a href="https://images-cdn.shimo.im/UaNx0YyBVl0smmpR/grontier2.png!thumbnail" target="_blank">!数据流交互</a></p>
+
+<ol>
+<li>客户端传送fpid, aid, device_id, access_key等参数与grontier建立websocket连接， websocket 的subprotocol为pbbp2。</li>
+<li>grontier维护webscoket连接池, 维护在内存中。</li>
+<li>grontier向backbone注册映射, backbone将注册关系存入redis中。</li>
+<li>客户端发送业务消息到grontier，grontier根据路由service, method参数进行路由调用backservice,</li>
+<li>backservice处理业务逻辑，将下行消息通过调用backbone接口返回，backbone将下行消息返回给grontier, 最终由grontier 返回给客户端。</li>
+</ol>
+
+<h3 id="源码分析">源码分析</h3>
+
+<p>grontier/main.go
+主要是启动两个server, 一个是thrift server, 一个是websocket server， 端口不一样。
+其中thrift server对是用于与backbone和backservice交互的, websocket server是与客户端交互的。
+rontier/thrift.go
+grontierThriftServer主要有3个函数，一个Start, 一个Close和handle。
+Start是启动一个tcp监听端口，等待连接，如果有链接请求来了，则起一个协程调用handle处理这个链接。
+handle 函数首先创建一个grontierServerhandler h，然后调用h.Serve，并传入BufferReader r, BufferWriter w。
+在grontierServerHandler中，Serve函数循环从r中读取数据包，首先读取MessageHeader，包括messageType (int32)，name(string)，seq(int32)。其中name目前支持&rdquo;PushByUUID&rdquo; , messageType只支持CALL 。 读取正确的messageHeader后读取参数grontierPushByUUIDArgs。
+读取完整的请求后，向request channel 塞入一条记录。 Serve函数还启动了一个协程，遍历channel 中的请求(request)， 调用grontierHandler的PushByUUID函数，也就是调用grontierClient的PushByUUID接口（是业务应用调用grontier对外提供的接口吗？还是backbone调用grontier?）
+Close是关闭tcp链接， 是在服务被shutdown的时候调用的。</p>
+
+<p>grontier/grontier.go
+grontierWebsocketServer的结构体定义如下：</p>
+
+<pre><code class="language-go">type grontierWebsocketServer struct {
+   mu        sync.Mutex
+   listeners []net.Listener
+
+   upgrader *websocket.Upgrader
+}
+
+</code></pre>
+
+<p>其中 upgrader是websocket.Upgrader，用于将http提升为websocket。 grontierWebsocketServer的Start函数会用相同的端口起两个socket进行监听，一个是unixsocket，一个是tcp socket。
+在grontierWebsocketServer的ListenAndServe函数中，创建一个ServeMux，也就是http的路由器。其中有一个最主要的：</p>
+
+<pre><code class="language-go">mux.HandleFunc(&quot;/ws/v2&quot;, s.serveV2)
+</code></pre>
+
+<p>是用于接收客户端消息的。
+接下来看一下serveV2方法：
+首先获得请求参数，包括:deviceid, appid, productid。
+如果app对应的authPSM不为空，则获得对应的psm client，调用client.Auth方法。接着调用upgrader的Upgrade方法，提升http为websocket。其中Upgrade就是建立websocket的过程， 并返回一个connection。
+拿到websocket的connection后，执行ConnHub.Run(connection)。在这个方法中，首先执行ConnHub.Register(connection)方法，将连接信息注册到backbone。然后执行Connection.ReadLoop():
+ReadLoop执行for循环，并在for循环中执行：</p>
+
+<pre><code class="language-go">err := c.wsr.Serve(c.websocketCallBack)
+if c.IsClosed() {
+   return
+}
+ne, ok := err.(net.Error)
+if ok &amp;&amp; ne.Timeout() &amp;&amp; c.wsr.Reentrant() &amp;&amp; time.Since(c.GetAccessTime()) &lt; c.PingInterval(2) { // if timeout, ping it
+   atomic.AddUint64(&amp;st.SndPing, 1)
+   atomic.AddUint64(&amp;c.st.SndPing, 1)
+   if err := c.WriteMessage(websocket.PingMessage, nil); err != nil {
+      log.XError(c.String(), &quot;write ping err&quot;, err.Error())
+      return
+   }
+   pongTimeout := c.PingInterval(2) - time.Since(c.GetAccessTime())
+   if pongTimeout &lt; 10*time.Second {
+      pongTimeout = 10 * time.Second
+   }
+   c.conn.SetReadDeadline(time.Now().Add(pongTimeout))
+   continue
+}
+atomic.AddUint64(&amp;st.ReadErr, 1)
+log.XError(c.String(), &quot;read err:&quot;, err.Error())
+c.ForceClose()
+return
+
+</code></pre>
+
+<p>如果是超时，则发送ping消息给客户端。如果是其他错误，则强行关闭连接。
+在websocket的Serve方法中，循环读取客户端发送过来的消息：</p>
+
+<pre><code class="language-go">for {
+   r.reset()
+   p, err := r.next(2)
+   if err != nil {
+      return err
+   }
+   final := p[0]&amp;finalBit != 0
+   opcode := MessageType(p[0] &amp; 0xf)
+   mask := p[1]&amp;maskBit != 0
+   payloadLen := int(p[1] &amp; 0x7f)
+   if rsv := p[0] &amp; (rsv1Bit | rsv2Bit | rsv3Bit); rsv != 0 {
+      return errRsvBit
+   }
+
+   switch opcode {
+   case CloseMessage, PingMessage, PongMessage:
+      if payloadLen &gt; MaxControlFramePayloadSize {
+         return errPayloadLen
+      }
+      if !final {
+         return errFinFlag
+      }
+   case BinaryMessage, TextMessage:
+   default:
+      return errOpcode
+   }
+//.......
+  if err := cb(opcode, payload); err != nil {
+     return err
+  }
+}
+
+</code></pre>
+
+<p>在Connection的websocketCallBack中，对于PING消息，立马回复PONG消息，对于CLOSE消息，执行Close，对于BinaryMessage，则执行SendMessage2Backservice给Backservice 发rpc请求(SendMessage), 并将Backservice的返回消息发送给前端。
+至此，grontier的主干流程梳理清楚了。接着梳理一下其他的流程。</p>
+
+<h3 id="backbone模块">backbone模块</h3>
+
+<p>backbone是一个rpc服务，对外提供的接口包括：QueryOnline, PushByUUID，Push，RegisterDevice,  UnregisterDevice。</p>
+
+<ol>
+<li><p>RegisterDevice:
+主要是构造如下结构体：</p>
+
+<pre><code class="language-go">f := storage.grontierConnInfo{ProductID: r.ProductID, AppID: r.AppID,
+UserID: r.UserID, DeviceID: r.DeviceID, ClientVersion: r.ClientVersion}
+</code></pre>
+
+<p>然后执行 f.save将结果存储在redis中。</p></li>
+
+<li><p>UnregisterDevice：
+将connection信心从redis中删除.</p></li>
+
+<li><p>QueryOnline:
+QueryOnline的用途是根据grontier模块发送过来的参数请求，查询存在redis中的grontier connection。</p></li>
+
+<li><p>PushByUUID:
+首先根据uuid列表，拿到设备地址，然后遍历uuid和 grontier的addr的map，起协程调用PushByUUID2grontier。</p>
+
+<pre><code class="language-go">for sa, uuids := range addr2uuids {
+req.UUIDs = uuids
+wg.Add(1)
+go func(addr string, req backbone.PushByUUIDReq) {
+  defer wg.Done()
+  ret := PushByUUID2grontier(ctx, addr, req)
+  mu.Lock()
+  for k, v := range ret {
+     resp.Results[k] = v
+  }
+  mu.Unlock()
+}(sa.String(), req)
+}
+</code></pre>
+
+<p>其中PushByUUID2grontier，首先从内存的map中拿到​grontierClient​，如果内存map中没有，则调用​DialerWithRetry​拿到，并存入内存中 。</p></li>
+
+<li><p>Push</p></li>
+</ol>
+
+<p>做的事情跟PushByUUID一样。</p>
+
+<h3 id="为什么需要backbone">为什么需要backbone</h3>
+
+<p>backbone存储了uuid-&gt;grontier的一个路由信息，加入没有backbone，backservice需要向客户端发消息，需要指定链接在哪个grontier中，实际上这个信息存储在backbone中，backservice只需要将消息发送给backbone，由backbone路由到正确的grontier。 grontier存储了uuid-&gt;websocketconnection信息。</p>
+
+<h3 id="backservice发现">Backservice发现</h3>
+
+<p>grontier的conf写在etcd，grontier动态加载conf，可以发现有新的backservice加入，新的backservice的地址再通过consul获取</p>
+
+<h3 id="平滑升级">平滑升级</h3>
+
+<p>对Frontier分成两组：一组在线、一组热备。升级时，先升级热备，然后通过unixsocket的软链把热备切换到在线，对新连接生效。</p>
+
+<h3 id="nginx作用">Nginx作用</h3>
+
+<ol>
+<li><p>负载均衡，通过app_id将连接发送到不同的cluster</p></li>
+
+<li><p>frontier和Nginx混布，使用unixsocket通信，规避了端口号不够的问题
+s</p></li>
+</ol>
+
+    </div>
+
+    
+      
+
+    
+
+    
+      
+<div class="share-box" aria-hidden="true">
+  <ul class="share">
+    <li>
+      <a class="twitter"
+         href="https://twitter.com/intent/tweet?text=%e9%98%85%e8%af%bb%e9%95%bf%e9%93%be%e6%8e%a5%e6%9c%8d%e5%8a%a1%e6%9e%b6%e6%9e%84%e6%80%bb%e7%bb%93&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2farch%2ffrontier%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-twitter"></i>
+      </a>
+    </li>
+    <li>
+      <a class="facebook"
+         href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fcheckking.github.io%2fpost%2farch%2ffrontier%2f"
+         target="_blank" rel="noopener">
+        <i class="fa fa-facebook"></i>
+      </a>
+    </li>
+    <li>
+      <a class="linkedin"
+         href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2farch%2ffrontier%2f&amp;title=%e9%98%85%e8%af%bb%e9%95%bf%e9%93%be%e6%8e%a5%e6%9c%8d%e5%8a%a1%e6%9e%b6%e6%9e%84%e6%80%bb%e7%bb%93"
+         target="_blank" rel="noopener">
+        <i class="fa fa-linkedin"></i>
+      </a>
+    </li>
+    <li>
+      <a class="email"
+         href="mailto:?subject=%e9%98%85%e8%af%bb%e9%95%bf%e9%93%be%e6%8e%a5%e6%9c%8d%e5%8a%a1%e6%9e%b6%e6%9e%84%e6%80%bb%e7%bb%93&amp;body=https%3a%2f%2fcheckking.github.io%2fpost%2farch%2ffrontier%2f">
+        <i class="fa fa-envelope"></i>
+      </a>
+    </li>
+  </ul>
+</div>
+
+
+    
+
+    
+      
+
+    
+
+  </div>
+</article>
+			</section>
+		</div>
+	</article>
+</div> 
+
+<div class="page_footer">
+	<p>&copy; Check King 2018. Powered by <a href="http://gohugo.io/">Hugo</a> and <a href="https://github.com/jhu247/minimal-academic">Minimal Academic</a>.</p>
+</div>
+    
+    
+
+
+  </body>
+</html>

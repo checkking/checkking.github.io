@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-03-21T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-04-07T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,16 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/cs/pb_serialize/">protobuf序列化编码实例分析</a></h2>
+    <div class="post-style">
+      
+      这几天把google protobuf官方文档通读了一遍, 总觉得对message序列化后的内容理解的不够透彻，因此动手操作一遍，分析一下message序列化后的内容。程序代码是官网的。
+ proto文件内容  // file addressbook.proto syntax = &quot;proto3&quot;; package tutorial; message Person { string name = 1; int32 id = 2; // Unique ID number for this person. string email = 3; enum PhoneType { HOME = 0; MOBILE = 1; WORK = 2; } message PhoneNumber { string number = 1; PhoneType type = 2; } repeated PhoneNumber phone = 4; } message AddressBook { repeated Person person = 1; } service SearchService { rpc Search (Person) returns (Person); }   序列化写入程序  #include &lt;iostream&gt; #include &lt;fstream&gt; #include &lt;string&gt; #include &quot;addressbook.
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/cs/pb_zero_copy/">protobuf之ZeroCopy</a></h2>
@@ -170,17 +180,6 @@ void swap(Conter&amp; a, Counter&amp; b) { MutexLockGuard aLock(a.
 #include &lt;iostream&gt; #include &lt;boost/shared_ptr.hpp&gt; class Test { public: //析构函数 ~Test() { std::cout &lt;&lt; &quot;Test Destructor.&quot; &lt;&lt; std::endl; } //获取指向当前对象的指针 boost::shared_ptr&lt;Test&gt; GetObject() { boost::shared_ptr&lt;Test&gt; pTest(this); return pTest; } }; int main(int argc, char *argv[]) { { boost::shared_ptr&lt;Test&gt; p( new Test( )); boost::shared_ptr&lt;Test&gt; q = p-&gt;GetObject(); } return 0; }  程序输出：
 Test Destructor. Test Destructor.  从上面的输出你发现了什么，很明显的发现只创建new了一个Test对象，但是却调用了两次析构函数，这对程序来说肯定是一个灾难。为什么会出现这种情况呢？main函数中的boost::shared_ptr&lt;Test&gt; p( new Test( )); 将shared_ptr中引用计数器的值设置为1，而在GetObject函数中又通过boost::shared_ptr&lt;Test&gt; pTest(this)又将shared_ptr中的引用计数器的值增加了1，故在析构时一个Test对象被析构了两次。即产生这个错误的原因是通过同一个Test指针对象创建了多个shared_ptr，这是绝对禁止的。同时这也提醒我们在使用shared_ptr时一定不能通过同一个指针对象创建一个以上的shared_ptr对象。那么有什么方法从一个类的成员函数中获取当前对象的shared_ptr呢，其实方法很简单：只需要该类继承至enable_shared_from_this模板类,然后在需要shared_prt的地方调用enable_shared_from_this模板类的成员函数shared_from_this()即可，下面是改进后的代码：
 #include &lt;iostream&gt; #include &lt;boost/enable_shared_from_this.hpp&gt; #include &lt;boost/shared_ptr.
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/nginx/nginx4/">nginx源码阅读点滴</a></h2>
-    <div class="post-style">
-      
-      ngx_add_inherited_sockets 这个函数的目的是为了实现nginx平滑升级时获取原来的监听fd, 通过环境变量NGINX完成socket的继承，继承来的socket将会放到init_cycle的listening数组中。在NGINX环境变量中，每个socket中间用冒号或分号隔开。完成继承同时设置全局变量ngx_inherited为1。 相关代码：
- src/core/nginx.c
-static ngx_int_t ngx_add_inherited_sockets(ngx_cycle_t *cycle) { u_char *p, *v, *inherited; ngx_int_t s; ngx_listening_t *ls; inherited = (u_char *) getenv(NGINX_VAR); if (inherited == NULL) { return NGX_OK; } ngx_log_error(NGX_LOG_NOTICE, cycle-&gt;log, 0, &quot;using inherited sockets from &amp;quot;%s&amp;quot;&quot;, inherited); if (ngx_array_init(&amp;cycle-&gt;listening, cycle-&gt;pool, 10, sizeof(ngx_listening_t)) != NGX_OK) { return NGX_ERROR; } for (p = inherited, v = p; *p; p++) { if (*p == &lsquo;:&rsquo; || *p == &lsquo;;&rsquo;) { s = ngx_atoi(v, p - v); if (s == NGX_ERROR) { ngx_log_error(NGX_LOG_EMERG, cycle-&gt;log, 0, &quot;invalid socket number &amp;quot;%s&amp;quot; in &quot; NGINX_VAR &quot; environment variable, ignoring the rest&quot; &quot; of the variable&quot;, v); break; } v = p + 1; ls = ngx_array_push(&amp;cycle-&gt;listening); if (ls == NULL) { return NGX_ERROR; } ngx_memzero(ls, sizeof(ngx_listening_t)); ls-&gt;fd = (ngx_socket_t) s; } } ngx_inherited = 1; return ngx_set_inherited_sockets(cycle); }  src/core/nginx.
       
     </div>
   </div>

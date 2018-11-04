@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2018-10-25T19:35:11&#43;08:00">
+  <meta property="og:updated_time" content="2018-11-04T21:45:17&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,20 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/arch/frontier/">阅读长链接服务架构总结</a></h2>
+    <div class="post-style">
+      
+      背景 目前项目中用到了公司的长链接服务，抽空研究了一下公司长链接服务源码。 如果没有长链接服务，一些消息推送等功能只能用短链接轮询，或者长链接轮询的方式。长链接能够很好的解决短轮询和长轮询的一些不足。
+整体架构 !架构图
+数据流交互 !数据流交互
+ 客户端传送fpid, aid, device_id, access_key等参数与grontier建立websocket连接， websocket 的subprotocol为pbbp2。 grontier维护webscoket连接池, 维护在内存中。 grontier向backbone注册映射, backbone将注册关系存入redis中。 客户端发送业务消息到grontier，grontier根据路由service, method参数进行路由调用backservice, backservice处理业务逻辑，将下行消息通过调用backbone接口返回，backbone将下行消息返回给grontier, 最终由grontier 返回给客户端。  源码分析 grontier/main.go 主要是启动两个server, 一个是thrift server, 一个是websocket server， 端口不一样。 其中thrift server对是用于与backbone和backservice交互的, websocket server是与客户端交互的。 rontier/thrift.go grontierThriftServer主要有3个函数，一个Start, 一个Close和handle。 Start是启动一个tcp监听端口，等待连接，如果有链接请求来了，则起一个协程调用handle处理这个链接。 handle 函数首先创建一个grontierServerhandler h，然后调用h.Serve，并传入BufferReader r, BufferWriter w。 在grontierServerHandler中，Serve函数循环从r中读取数据包，首先读取MessageHeader，包括messageType (int32)，name(string)，seq(int32)。其中name目前支持&rdquo;PushByUUID&rdquo; , messageType只支持CALL 。 读取正确的messageHeader后读取参数grontierPushByUUIDArgs。 读取完整的请求后，向request channel 塞入一条记录。 Serve函数还启动了一个协程，遍历channel 中的请求(request)， 调用grontierHandler的PushByUUID函数，也就是调用grontierClient的PushByUUID接口（是业务应用调用grontier对外提供的接口吗？还是backbone调用grontier?） Close是关闭tcp链接， 是在服务被shutdown的时候调用的。
+grontier/grontier.go grontierWebsocketServer的结构体定义如下：
+type grontierWebsocketServer struct { mu sync.Mutex listeners []net.
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/lang/go1/">Golang defer return 返回值执行顺序总结</a></h2>
@@ -197,13 +211,6 @@ An obvious and correct answer is your hard drive.
 debug的用途 便于线上case追踪用，分析程序执行的每个环节。
 设计要点  debug信息的层级关系  为了很好地阅读debug信息，必须将debug信息很好地组织起来，比如一个请求来了，在后台执行的时候需要经过好几步，stage1, stage2,state3,&hellip;,其中stage1中又有好几步，我们可以把这些信息按照树的结构组织起来：
 { &quot;request&quot;: { &quot;ip&quot;: &quot;180.92.201.3&quot;, &quot;uri&quot;: &quot;/api/offer&quot;, &quot;network&quot;: &quot;wifi&quot;, &quot;debugid&quot;: &quot;8782399662&quot; }, &quot;process&quot;: { &quot;stage_readOffers&quot;: [ { &quot;offer_id&quot;: &quot;3142&quot;, &quot;type&quot;: &quot;aio&quot;, &quot;flags&quot;: { &quot;d&quot;: 1, &quot;x&quot;: false, &quot;ne&quot;: -1 } }, { &quot;offer_id&quot;: &quot;3142&quot;, &quot;type&quot;: &quot;aio&quot;, &quot;flags&quot;: { &quot;d&quot;: 1, &quot;x&quot;: false, &quot;ne&quot;: -1 } }, &hellip; ], &quot;stage_filterOffers&quot;: [ { &quot;offer_id&quot;: &quot;3142&quot;, &quot;type&quot;: &quot;aio&quot;, &quot;flags&quot;: { &quot;d&quot;: 1, &quot;x&quot;: false, &quot;ne&quot;: -1 } }, .
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/nginx/nginx6/">nginx so_reuseport</a></h2>
-    <div class="post-style">
       
     </div>
   </div>
