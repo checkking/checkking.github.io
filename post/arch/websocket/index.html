@@ -153,8 +153,9 @@
       
       
 
-<p>###概述
-WebSocket协议被设计来取代现有的使用HTTP作为传输层的双向通信技术，并受益于现有的基础设施（代理、过滤、身份验证）。协议有两部分：握手和数据传输。
+<h3 id="概述">概述</h3>
+
+<p>WebSocket协议被设计来取代现有的使用HTTP作为传输层的双向通信技术，并受益于现有的基础设施（代理、过滤、身份验证）。协议有两部分：握手和数据传输。
 来自客户端的握手看起来像如下形式：</p>
 
 <pre><code class="language-python">GET /chat HTTP/1.1
@@ -220,21 +221,21 @@ toBase64(sha1(Sec-WebSocket-Key + 258EAFA5-E914-47DA-95CA-C5AB0DC85B11))
 <h3 id="抓包分析">抓包分析</h3>
 
 <p>请求:
-<a href="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190546389-362401249.png" target="_blank">!websocket 建立链接</a></p>
+<img src="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190546389-362401249.png" alt="websocket 建立链接" /></p>
 
 <p>这是一次特殊的Http请求，为什么是一次特殊的Http请求呢？Http请求头中Connection:Upgrade Upgrade:websocket,Upgrade代表升级到较新的Http协议或者切换到不同的协议。很明显WebSocket使用此机制以兼容的方式与HTTP服务器建立连接。WebSocket协议有两个部分：握手建立升级后的连接，然后进行实际的数据传输。首先，客户端通过使用Upgrade: WebSocket和Connection: Upgrade头部以及一些特定于协议的头来请求WebSocket连接，以建立正在使用的版本并设置握手。服务器，如果它支持协议，回复与相同Upgrade: WebSocket和Connection: Upgrade标题，并完成握手。握手完成后，数据传输开始。这些信息在前面的Chrome控制台中也可以看到。</p>
 
 <p>响应：
 响应状态码 101 表示服务器已经理解了客户端的请求，在发送完这个响应后，服务器将会切换到在Upgrade请求头中定义的那些协议。
-<a href="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190558077-197672425.png" target="_blank">!websocket 响应</a></p>
+<img src="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190558077-197672425.png" alt="websocket 响应" /></p>
 
 <p>通信协议格式是WebSocket格式，服务器端采用Tcp Socket方式接收数据，进行解析，协议格式如下：
-<a href="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190609151-1724857868.png" target="_blank">!websocket格式</a></p>
+<img src="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190609151-1724857868.png" alt="websocket格式" /></p>
 
 <p>首先我们需要知道数据在物理层，数据链路层是以二进制进行传递的，而在应用层是以16进制字节流进行传输的。</p>
 
 <p>第一个字节：
-<a href="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190618338-1359735849.png" target="_blank">!第一个字节</a></p>
+<img src="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190618338-1359735849.png" alt="第一个字节" /></p>
 
 <p>FIN:1位，用于描述消息是否结束，如果为1则该消息为消息尾部,如果为零则还有后续数据包;
 RSV1,RSV2,RSV3：各1位，用于扩展定义的,如果没有扩展约定的情况则必须为0
@@ -251,22 +252,22 @@ OPCODE:4位，用于表示消息接收类型，如果接收到未知的opcode，
 0xB-F暂时无定义，为以后的控制帧保留</p>
 
 <p>第二个字节：
-<a href="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190625548-1649312784.png" target="_blank">!第二个字节</a>
+<img src="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190625548-1649312784.png" alt="第二个字节" />
 MASK:1位，用于标识PayloadData是否经过掩码处理，客户端发出的数据帧需要进行掩码处理，所以此位是1。数据需要解码。
 PayloadData的长度：7位，7+16位，7+64位
 如果其值在0-125，则是payload的真实长度。
 如果值是126，则后面2个字节形成的16位无符号整型数的值是payload的真实长度。
 如果值是127，则后面8个字节形成的64位无符号整型数的值是payload的真实长度。</p>
 
-<p><a href="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190640152-1549042973.png" target="_blank">!websocket响应</a></p>
+<p><img src="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190640152-1549042973.png" alt="websocket响应" /></p>
 
 <p>上图是客户端发送给服务端的数据包，其中PayloadData的长度为二进制：01111110——&gt;十进制：126；如果值是126，则后面2个字节形成的16位无符号整型数的值是payload的真实长度。也就是圈红的十六进制：00C1——&gt;十进制：193 byte。所以PayloadData的真实数据长度是193 bytes；</p>
 
-<p><a href="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190647548-379204831.png" target="_blank">!websocket帧图</a></p>
+<p><img src="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190647548-379204831.png" alt="websocket帧图" /></p>
 
 <p>我们再来抓包分析一下服务器到客户端的数据包：</p>
 
-<p><a href="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190656357-234229738.png" target="_blank">!客户端收到包</a></p>
+<p><img src="https://images2018.cnblogs.com/blog/1078987/201803/1078987-20180315190656357-234229738.png" alt="客户端收到包" /></p>
 
 <p>可以发现服务器发送给客户端的数据包中第二个字节中MASK位为0，这说明服务器发送的数据帧未经过掩码处理，这个我们从客户端和服务端的数据包截图中也可以发现，客户端的数据被加密处理，而服务端的数据则没有。（如果服务器收到客户端发送的未经掩码处理的数据包，则会自动断开连接；反之，如果客户端收到了服务端发送的经过掩码处理的数据包，也会自动断开连接）。</p>
 
