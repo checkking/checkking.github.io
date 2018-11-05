@@ -3,6 +3,11 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
+    <loc>https://checkking.github.io/post/arch/websocket/</loc>
+    <lastmod>2018-11-05T13:46:09+08:00</lastmod>
+  </url>
+  
+  <url>
     <loc>https://checkking.github.io/post/arch/frontier/</loc>
     <lastmod>2018-11-04T21:45:17+08:00</lastmod>
   </url>
@@ -204,13 +209,13 @@
   
   <url>
     <loc>https://checkking.github.io/</loc>
-    <lastmod>2018-11-04T21:45:17+08:00</lastmod>
+    <lastmod>2018-11-05T13:46:09+08:00</lastmod>
     <priority>0</priority>
   </url>
   
   <url>
     <loc>https://checkking.github.io/post/</loc>
-    <lastmod>2018-11-04T21:45:17+08:00</lastmod>
+    <lastmod>2018-11-05T13:46:09+08:00</lastmod>
     <priority>0</priority>
   </url>
   

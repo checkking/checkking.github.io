@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2018-11-04T21:45:17&#43;08:00">
+  <meta property="og:updated_time" content="2018-11-05T13:46:09&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,18 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/arch/websocket/">Websocket协议总结</a></h2>
+    <div class="post-style">
+      
+      ###概述 WebSocket协议被设计来取代现有的使用HTTP作为传输层的双向通信技术，并受益于现有的基础设施（代理、过滤、身份验证）。协议有两部分：握手和数据传输。 来自客户端的握手看起来像如下形式：
+GET /chat HTTP/1.1 Host: server.example.com Upgrade: websocket Connection: Upgrade Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ== Origin: <a href="http://example.com" target="_blank">http://example.com</a> Sec-WebSocket-Protocol: chat, superchat Sec-WebSocket-Version: 13  重点请求首部意义如下： * Connection: Upgrade：表示要升级协议 * Upgrade: websocket：表示要升级到 websocket 协议。 * Sec-WebSocket-Version: 13：表示 websocket 的版本。如果服务端不支持该版本，需要返回一个 Sec-WebSocket-Versionheader ，里面包含服务端支持的版本号。 * Sec-WebSocket-Key：与后面服务端响应首部的 Sec-WebSocket-Accept 是配套的，提供基本的防护，比如恶意的连接，或者无意的连接。
+来自服务器的握手看起来像如下形式：
+HTTP/1.1 101 Switching Protocols Upgrade: websocket Connection: Upgrade Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo= Sec-WebSocket-Protocol: chat   Sec-WebSocket-Accept 根据客户端请求首部的 Sec-WebSocket-Key 计算出来。 计算公式为：  toBase64(sha1(Sec-WebSocket-Key + 258EAFA5-E914-47DA-95CA-C5AB0DC85B11))   一旦客户端和服务器都发送了它们的握手，且如果握手成功，接着开始数据传输部分。 这是一个每一端都可以的双向通信信道，彼此独立，随意发生数据。
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/arch/frontier/">阅读长链接服务架构总结</a></h2>
@@ -199,18 +211,6 @@ Let’s create a file first.
 touch myfile cat &gt; myfile Hello, world!  cat file should display this text:
 cat myfile Hello, world!  Where do you think myfile is stored?
 An obvious and correct answer is your hard drive.
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/nginx/nginx7/">一个简易的debug库设计与实现</a></h2>
-    <div class="post-style">
-      
-      背景 最近项目上线了广告Offer按照ecpm等排序策略功能，上线之后经常被pm骚扰，因为他经常想查看为什么一个offer没有展示等问题，每次都要帮他查看线上日志，过程很痛苦，占用了大把时间。必须要改变这种现状。
-debug的用途 便于线上case追踪用，分析程序执行的每个环节。
-设计要点  debug信息的层级关系  为了很好地阅读debug信息，必须将debug信息很好地组织起来，比如一个请求来了，在后台执行的时候需要经过好几步，stage1, stage2,state3,&hellip;,其中stage1中又有好几步，我们可以把这些信息按照树的结构组织起来：
-{ &quot;request&quot;: { &quot;ip&quot;: &quot;180.92.201.3&quot;, &quot;uri&quot;: &quot;/api/offer&quot;, &quot;network&quot;: &quot;wifi&quot;, &quot;debugid&quot;: &quot;8782399662&quot; }, &quot;process&quot;: { &quot;stage_readOffers&quot;: [ { &quot;offer_id&quot;: &quot;3142&quot;, &quot;type&quot;: &quot;aio&quot;, &quot;flags&quot;: { &quot;d&quot;: 1, &quot;x&quot;: false, &quot;ne&quot;: -1 } }, { &quot;offer_id&quot;: &quot;3142&quot;, &quot;type&quot;: &quot;aio&quot;, &quot;flags&quot;: { &quot;d&quot;: 1, &quot;x&quot;: false, &quot;ne&quot;: -1 } }, &hellip; ], &quot;stage_filterOffers&quot;: [ { &quot;offer_id&quot;: &quot;3142&quot;, &quot;type&quot;: &quot;aio&quot;, &quot;flags&quot;: { &quot;d&quot;: 1, &quot;x&quot;: false, &quot;ne&quot;: -1 } }, .
       
     </div>
   </div>

@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-04-16T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-04-22T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,18 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/nginx/nginx7/">一个简易的debug库设计与实现</a></h2>
+    <div class="post-style">
+      
+      背景 最近项目上线了广告Offer按照ecpm等排序策略功能，上线之后经常被pm骚扰，因为他经常想查看为什么一个offer没有展示等问题，每次都要帮他查看线上日志，过程很痛苦，占用了大把时间。必须要改变这种现状。
+debug的用途 便于线上case追踪用，分析程序执行的每个环节。
+设计要点  debug信息的层级关系  为了很好地阅读debug信息，必须将debug信息很好地组织起来，比如一个请求来了，在后台执行的时候需要经过好几步，stage1, stage2,state3,&hellip;,其中stage1中又有好几步，我们可以把这些信息按照树的结构组织起来：
+{ &quot;request&quot;: { &quot;ip&quot;: &quot;180.92.201.3&quot;, &quot;uri&quot;: &quot;/api/offer&quot;, &quot;network&quot;: &quot;wifi&quot;, &quot;debugid&quot;: &quot;8782399662&quot; }, &quot;process&quot;: { &quot;stage_readOffers&quot;: [ { &quot;offer_id&quot;: &quot;3142&quot;, &quot;type&quot;: &quot;aio&quot;, &quot;flags&quot;: { &quot;d&quot;: 1, &quot;x&quot;: false, &quot;ne&quot;: -1 } }, { &quot;offer_id&quot;: &quot;3142&quot;, &quot;type&quot;: &quot;aio&quot;, &quot;flags&quot;: { &quot;d&quot;: 1, &quot;x&quot;: false, &quot;ne&quot;: -1 } }, &hellip; ], &quot;stage_filterOffers&quot;: [ { &quot;offer_id&quot;: &quot;3142&quot;, &quot;type&quot;: &quot;aio&quot;, &quot;flags&quot;: { &quot;d&quot;: 1, &quot;x&quot;: false, &quot;ne&quot;: -1 } }, .
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/nginx/nginx6/">nginx so_reuseport</a></h2>
@@ -178,22 +190,6 @@ class TimerQueue : boost::noncopyable { public: TimerQueue(EventLoop</em> loop);
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) serversocket.bind((&ldquo;, 2006)) serversocket.listen(5) serversocket.setblocking(0) poll = select.poll() poll.register(serversocket.fileno(), select.POLLIN) connections = {} while True: events = poll.poll(1000) for fileno, event in events: # (1) if fileno == serversocket.fileno(): (clientsocket, address) = serversocket.accept() # (2) clientsocket.setblocking(0) poll.register(clientsocket.fileno(), select.POLLIN) connections[clientsocket.fileno()] = client.socket elif event &amp; select.POLLIN: # &hellip;  假设(2)处返回EMFILE该如何应对？这意味着本进程的文件描述符已经达到上限，无法为新连接建立socket文件描述符。但是，既然没有scoekt文件描述符来表示连接，我们就无法close(2)它。程序继续运行，回到(1)处再一次调用epoll_wait，这时候epoll_wait会立刻返回，因为新连接还等待处理，listening fd还是可读的。这样程序就立刻陷入busy loop,CPU占用率接近100%. 这既影响同一event loop上的连接，也影响同一机器上的其他服务。
 这种情况下，有以下几种解决方案：
  提高进程的文件描述符数目。治标不治本。 死等。 退出程序，小题大作 关闭listening fd，那什么时候重新打开呢？ 改用edge trigger，如果漏掉一次accept(2),程序再也不会收到新连接。 准备一个空闲的文件描述符，遇到这种情况，先关闭这个空闲描述符，获得一个文件描述符的名额；再accept(2)拿到新socket连接的描述符；随后立刻close(2)它，这样就优雅地断开了客户端连接；最后重新打开一个空闲文件，把&rdquo;坑&rdquo;站住，以备再次出现这种情况时使用。  私以为第6种方案最佳，muduo的Acceptor正是用这种方案，相关代码如下：
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/cs/timer_wheel/">用timing wheel踢掉空闲连接</a></h2>
-    <div class="post-style">
-      
-      如果一个连接连续几秒内没有收到数据，就把它断开，为此有两种简单、粗暴的做法：
- 每个连接保存&rdquo;最后收到数据的时间lastReceiveTime&ldquo;， 然后用一个定时器，每秒 遍历一遍所有的连接，断开那些(now - connection.lastReceiveTime) &gt; 8s的connection。 这种做法全局只有一个repeated timer, 不过每次timeout都要检查全部连接，如果连接数目 比较大(几千万), 这一步可能比较费时。 每个连接设置一个one-shot timer, 超时定为8s, 在超时的时候就断开本连接。当然， 每次收到数据要去更新timer。这种做法需要很多one-shot timer, 会频繁地更新timers。如果连接数目比较大，可能对EventLoop的 TimerQueue造成压力。  使用timing wheel能够避免上述两种做法的缺点。timing wheel可以翻译为&rdquo;时间轮盘&rdquo;或&rdquo;刻度盘&rdquo;。
-timing wheel原理 定时轮是一种数据结构，其主体是一个循环列表（circular buffer），每个列表中包含一个称之为槽（slot）的结构（附图）。 至于 slot 的具体结构依赖具体应用场景。 以本文开头所述的管理大量连接 timeout 的场景为例，描述一下 timing wheel的具体实现细节。
-定时轮的工作原理可以类比于始终，如上图箭头（指针）按某一个方向按固定频率轮动，每一次跳动称为一个 tick。 这样可以看出定时轮由个3个重要的属性参数，ticksPerWheel（一轮的tick数），tickDuration（一个tick的持续时间） 以及 timeUnit（时间单位），例如 当ticksPerWheel=60，tickDuration=1，timeUnit=秒，这就和现实中的始终的秒针走动完全类似了。
-这里给出一种简单的实现方式，指针按 tickDuration 的设置进行固定频率的转动，其中的必要约定如下：
- 新加入的对象总是保存在当前指针转动方向上一个位置 相等的对象仅存在于一个 slot 中 指针转动到当前位置对应的 slot 中保存的对象就意味着 timeout 了  在 Timing Wheel 模型中包含4种操作：
-Client invoke：
- START_TIMER(Interval, Request_ID, Expiry_Action) STOP_TIMER(Request_ID)  Timer tick invoke：
       
     </div>
   </div>

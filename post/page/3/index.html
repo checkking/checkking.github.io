@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-04-07T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-04-08T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,22 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/cs/timer_wheel/">用timing wheel踢掉空闲连接</a></h2>
+    <div class="post-style">
+      
+      如果一个连接连续几秒内没有收到数据，就把它断开，为此有两种简单、粗暴的做法：
+ 每个连接保存&rdquo;最后收到数据的时间lastReceiveTime&ldquo;， 然后用一个定时器，每秒 遍历一遍所有的连接，断开那些(now - connection.lastReceiveTime) &gt; 8s的connection。 这种做法全局只有一个repeated timer, 不过每次timeout都要检查全部连接，如果连接数目 比较大(几千万), 这一步可能比较费时。 每个连接设置一个one-shot timer, 超时定为8s, 在超时的时候就断开本连接。当然， 每次收到数据要去更新timer。这种做法需要很多one-shot timer, 会频繁地更新timers。如果连接数目比较大，可能对EventLoop的 TimerQueue造成压力。  使用timing wheel能够避免上述两种做法的缺点。timing wheel可以翻译为&rdquo;时间轮盘&rdquo;或&rdquo;刻度盘&rdquo;。
+timing wheel原理 定时轮是一种数据结构，其主体是一个循环列表（circular buffer），每个列表中包含一个称之为槽（slot）的结构（附图）。 至于 slot 的具体结构依赖具体应用场景。 以本文开头所述的管理大量连接 timeout 的场景为例，描述一下 timing wheel的具体实现细节。
+定时轮的工作原理可以类比于始终，如上图箭头（指针）按某一个方向按固定频率轮动，每一次跳动称为一个 tick。 这样可以看出定时轮由个3个重要的属性参数，ticksPerWheel（一轮的tick数），tickDuration（一个tick的持续时间） 以及 timeUnit（时间单位），例如 当ticksPerWheel=60，tickDuration=1，timeUnit=秒，这就和现实中的始终的秒针走动完全类似了。
+这里给出一种简单的实现方式，指针按 tickDuration 的设置进行固定频率的转动，其中的必要约定如下：
+ 新加入的对象总是保存在当前指针转动方向上一个位置 相等的对象仅存在于一个 slot 中 指针转动到当前位置对应的 slot 中保存的对象就意味着 timeout 了  在 Timing Wheel 模型中包含4种操作：
+Client invoke：
+ START_TIMER(Interval, Request_ID, Expiry_Action) STOP_TIMER(Request_ID)  Timer tick invoke：
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/cs/pb_serialize/">protobuf序列化编码实例分析</a></h2>
@@ -167,19 +183,6 @@ extern Foo* x; // visibale by all threads // thread A delete x; x = NULL; // thr
 这个例子说明，作为class的数据成员MutexLock只能同步本class的其他数据成员的读写，他不能保护安全地析构。因为MutexLock成员的生命周期最多和本class一样长，而析构函数可说是发生在对象身故之后。
 另外，如果要同时读写一个class的两个对象，有潜在的死锁可能。比如说有swap这个函数：
 void swap(Conter&amp; a, Counter&amp; b) { MutexLockGuard aLock(a.
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/lang/cpp2/">谈谈enable_shared_from_this</a></h2>
-    <div class="post-style">
-      
-      以前都没有用过enable_shared_from_this模板类，虽然经常遇到但是也没怎么去关注，今天抽时间好好学习了下enable_shared_from_this模板类，发现在使用shared_ptr模板类和enable_shared_from_this模板类时有许多陷阱的，故记录于此。
-什么时候该使用enable_shared_from_this模板类 在看下面的例子之前，简单说下使用背景，单有一个类，某个函数需要返回当前对象的指针，我们返回的是shared_ptr，为什么使用智能指针呢，这是因为：当我们使用智能指针管理资源时，必须统一使用智能指针，而不能再某些地方使用智能指针，某些地方使用原始指针，否则不能保持智能指针的语义，从而产生各种错误。好了，介绍完背景，看下面的一段小程序：
-#include &lt;iostream&gt; #include &lt;boost/shared_ptr.hpp&gt; class Test { public: //析构函数 ~Test() { std::cout &lt;&lt; &quot;Test Destructor.&quot; &lt;&lt; std::endl; } //获取指向当前对象的指针 boost::shared_ptr&lt;Test&gt; GetObject() { boost::shared_ptr&lt;Test&gt; pTest(this); return pTest; } }; int main(int argc, char *argv[]) { { boost::shared_ptr&lt;Test&gt; p( new Test( )); boost::shared_ptr&lt;Test&gt; q = p-&gt;GetObject(); } return 0; }  程序输出：
-Test Destructor. Test Destructor.  从上面的输出你发现了什么，很明显的发现只创建new了一个Test对象，但是却调用了两次析构函数，这对程序来说肯定是一个灾难。为什么会出现这种情况呢？main函数中的boost::shared_ptr&lt;Test&gt; p( new Test( )); 将shared_ptr中引用计数器的值设置为1，而在GetObject函数中又通过boost::shared_ptr&lt;Test&gt; pTest(this)又将shared_ptr中的引用计数器的值增加了1，故在析构时一个Test对象被析构了两次。即产生这个错误的原因是通过同一个Test指针对象创建了多个shared_ptr，这是绝对禁止的。同时这也提醒我们在使用shared_ptr时一定不能通过同一个指针对象创建一个以上的shared_ptr对象。那么有什么方法从一个类的成员函数中获取当前对象的shared_ptr呢，其实方法很简单：只需要该类继承至enable_shared_from_this模板类,然后在需要shared_prt的地方调用enable_shared_from_this模板类的成员函数shared_from_this()即可，下面是改进后的代码：
-#include &lt;iostream&gt; #include &lt;boost/enable_shared_from_this.hpp&gt; #include &lt;boost/shared_ptr.
       
     </div>
   </div>

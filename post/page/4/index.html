@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-02-24T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-02-28T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,19 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/lang/cpp2/">谈谈enable_shared_from_this</a></h2>
+    <div class="post-style">
+      
+      以前都没有用过enable_shared_from_this模板类，虽然经常遇到但是也没怎么去关注，今天抽时间好好学习了下enable_shared_from_this模板类，发现在使用shared_ptr模板类和enable_shared_from_this模板类时有许多陷阱的，故记录于此。
+什么时候该使用enable_shared_from_this模板类 在看下面的例子之前，简单说下使用背景，单有一个类，某个函数需要返回当前对象的指针，我们返回的是shared_ptr，为什么使用智能指针呢，这是因为：当我们使用智能指针管理资源时，必须统一使用智能指针，而不能再某些地方使用智能指针，某些地方使用原始指针，否则不能保持智能指针的语义，从而产生各种错误。好了，介绍完背景，看下面的一段小程序：
+#include &lt;iostream&gt; #include &lt;boost/shared_ptr.hpp&gt; class Test { public: //析构函数 ~Test() { std::cout &lt;&lt; &quot;Test Destructor.&quot; &lt;&lt; std::endl; } //获取指向当前对象的指针 boost::shared_ptr&lt;Test&gt; GetObject() { boost::shared_ptr&lt;Test&gt; pTest(this); return pTest; } }; int main(int argc, char *argv[]) { { boost::shared_ptr&lt;Test&gt; p( new Test( )); boost::shared_ptr&lt;Test&gt; q = p-&gt;GetObject(); } return 0; }  程序输出：
+Test Destructor. Test Destructor.  从上面的输出你发现了什么，很明显的发现只创建new了一个Test对象，但是却调用了两次析构函数，这对程序来说肯定是一个灾难。为什么会出现这种情况呢？main函数中的boost::shared_ptr&lt;Test&gt; p( new Test( )); 将shared_ptr中引用计数器的值设置为1，而在GetObject函数中又通过boost::shared_ptr&lt;Test&gt; pTest(this)又将shared_ptr中的引用计数器的值增加了1，故在析构时一个Test对象被析构了两次。即产生这个错误的原因是通过同一个Test指针对象创建了多个shared_ptr，这是绝对禁止的。同时这也提醒我们在使用shared_ptr时一定不能通过同一个指针对象创建一个以上的shared_ptr对象。那么有什么方法从一个类的成员函数中获取当前对象的shared_ptr呢，其实方法很简单：只需要该类继承至enable_shared_from_this模板类,然后在需要shared_prt的地方调用enable_shared_from_this模板类的成员函数shared_from_this()即可，下面是改进后的代码：
+#include &lt;iostream&gt; #include &lt;boost/enable_shared_from_this.hpp&gt; #include &lt;boost/shared_ptr.
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/nginx/nginx4/">nginx源码阅读点滴</a></h2>
