@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-04-24T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-04-30T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,35 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/arch/sample/">谈谈抽样试验</a></h2>
+    <div class="post-style">
+      
+      背景 对于一些重要的产品，开发出的新功能往往需要真实流量进行验证才能知道这个功能带来的收益是好还是坏，比如图搜变现的策略rd想要在图搜wise端出游戏的一个广告banner，点击这个广告banner，会跳到一个下载中间页，我们最终的目的是要提高下载量，这就要评估一下哪种下载中间页会提高下载量，当然还有一些其他的评估指标。因此需要从整个流量中抽取两个小部分流量来做对比实验。怎么去分配流量，让不同流量走不同的逻辑就是抽样框架的主要任务。 还有FE开发了一种新的广告样式，需要确认这种样式会不会提高CTR。这些新策略，新样式的上线，都需要灰度发布，也就是小流量实验。
+我们的广告模块也实现了一个实验框架，用于灰度发布，我分析一下这个实验框架的细节。
+实验框架的整体流程 实验用户通过抽样平台上创建抽样试验，比如这个抽样试验要对流量按照uid进行划分，实验组需要流量为1%, 对照组所需流量为1%，如果现有所有流量层有按照cuid划分的，并且这一层上剩余流量充足，则在这一层上选取流量区间分配给实验组和对照组。
+则可以将流量区间1000~1099分配给实验组，并创建一个新的sid加入配置，将1100~1199分配给对照组，并创建一个新的sid加入配置。
+流量分配好之后，就可以在这个流量下面创建一些策略变量，比如在实验组中这个变量值为x,在对照组中，这个变量值为y（变量需要指定模块）。还可以加入一些过滤条件，对流量进行过滤。比如比如query不能在某个此表中。
+实验创建好，并通过审核，准备上线。就会生成两类配置。一类是广告入口模块（midway）所使用的流量划分配置，模块根据这个配置，对请求打上sid列表。传递给下游模块。另外一类配置是各个模块使用的抽样变量配置。程序在运行的时候根据不同sid取得不同的变量值，走不同的逻辑。
+配置是通过一个配置配送模块进行的, 各个模块热加载配置。
+具体打sid的过程 midway拿到流量分配配置后，解析配置，layermanager将按层解析配置，按层管理各个layer, layer中包含各个抽样节点，比如sid 999的流量区间为start=0, end=999
+而且每层的sid都是按照start排序的。后续一个请求hash得到的一个整数就可以按照二分查找。
+一个请求过来之后，就会一层一层地去匹配sid，每层最多匹配一个。
+查找变量过程 下游模块加载抽样变量配置，热加载，按照变量名组织:
+struct SampleParam { uint32_t sid,; void* val; } std::unordered_map&lt;std::string, SampleParam&gt; sample_variables.  当代码要用到抽样变量时，先到sample_variable中查找，如果不到，则用默认值。
+为了统计和评估，在日志中加入sid, 这样可以统计pv,ctr等信息。
+流量切分 流量划分的粒度为0.1%， 我们将全部流量划分成10000等份，这样全部流量就是0~9999。对输入进行随机hash计算，可以将流量打散在全流量中。 流量可以按照以下几种方式来划分： 1) 按IP来进行划分(地域)  2) 按UID进行划分 3) 按cookie进行划分 4) 按query进行划分
+首先将key对应的字符串用creat_sign_murmur64函数转成64位的整数，然后对10000取模，得到一个0~10000之间的整数。整个整数再去和各个抽样进行匹配，如果在某个抽样区间，则将请求打上对应的sid。
+实现流量的分层 100%的流量很容易被用完，加入每个实验都需要10%的流量，这样同时只能做10个实验。而且有些实验要求更多的流量，比如有些实验要求在特定query下才走什么要的策略，假如只抽取1%的流量，这样再用这个流量进行query过滤，那就太少了，因此这类实验往往要求很多的流量，比如30%。这样势必会造成流量不够用的情况。
+因此需要进行流量分层，将100%的流量正交成16个全流量，从逻辑上将实验流量变成原来的16倍。正交的意思是指第一层的某段很小的1%流量能够均匀地分散到其他层的100%上，而不是集中在其他层的某一段。 正交层之间几乎没有相互影响：
+假如有实验1，有实验组exp_a和对照组control_a，各占流量1%,在第一层，第二层中有实验2，有实验组exp_a，占流量2%。如果不正交的话，导致实验1和实验2流量重叠，一个请求要么全部中实验一和实验二，要么全不中。这样两个实验就可能会相互影响了（即使两个实验不互斥）。如果保证正交的话，第一层实验1的流量均匀的落到第二层，这样就只有极少一部分流量落到实验2中的流量。
+如果实验1和实验2互斥，比如都要在一个广告位上出广告，这样实验一和实验二必须都在同一层。
+分层的实现是为不同层的creat_sign_murmur64函数设置不同的初始化种子字符串实现的，在创建层的时候为每个层分配一个全局唯一的id，作为层的初始化seed。具体代码如下：
+ErrorCode calc_sample_ratio(const boost::any &amp;any_value, const std::string &amp;seed, double &amp;sample_ratio) { std::string val; if (boost_any_to_str(any_value, val) !
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/cs/link/">硬连接和软连接</a></h2>
@@ -176,23 +205,6 @@ Locality-aware Locality-aware load balancing，能根据下游节点的负载分
 那新TimerThread是如何做到的？
  一个TimerThread而不是多个。 创建的timer散列到多个Bucket以降低线程间的竞争，默认12个Bucket。 Bucket内不使用小顶堆管理时间，而是链表 + nearest_run_time字段，当插入的时间早于nearest_run_time时覆盖这个字段，之后去和全局nearest_run_time（和Bucket的nearest_run_time不同）比较，如果也早于这个时间，修改并唤醒TimerThread。链表节点在锁外使用ResourcePool分配。 删除时通过id直接定位到timer内存结构，修改一个标志，timer结构总是由TimerThread释放。 TimerThread被唤醒后首先把全局nearest_run_time设置为几乎无限大(max of int64)，然后取出所有Bucket内的链表，并把Bucket的nearest_run_time设置为几乎无限大(max of int64)。TimerThread把未删除的timer插入小顶堆中维护，这个堆就它一个线程用。在每次运行回调或准备睡眠前都会检查全局nearest_run_time， 如果全局更早，说明有更早的时间加入了，重复这个过程。  这里勾勒了TimerThread的大致工作原理，工程实现中还有不少细节问题，具体请阅读timer_thread.h和timer_thread.cpp。
 struct TimerThreadOptions { // Scheduling requests are hashed into different bucket to improve // scalability. However bigger num_buckets may NOT result in more scalable // schedule() because bigger values also make each buckets more sparse // and more likely to lock the global mutex.
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/cs/timer_impl/">Timer定时器的设计和实现</a></h2>
-    <div class="post-style">
-      
-      定时器 在一般的服务端程序设计中，与时间有关的常见任务有：
- 获取当前时间，计算时间间隔 时区转换与日期计算；把纽约当地时间转换成上海当地时间；2011-02-05之后的100天是几月几号星期几;等等。 定时操作，比如在预定的时间执行任务，或者在一段延时之后执行任务。  这里我们讨论第3项。Linux计时函数有下面这些：
- time(2) / time_t (s) ftime(3) / struct timeb (ms) gettimeofday(2) / struct timeval (us) clock_gettime(2) / struct timespec (ns)  定时函数，用于让程序等待一段时间或安排计划任务：
- sleep(3) alarm(2) usleep(3) nanosleep(2) clock_nanosleep(2) gettimer(2) / settimer(2) timer_create(2) / timer_settime(2) / timer_gettime(2) / timer_delete(2) timerfd_create(2) / timerfd_gettime(2) / timerfd<em>settime(2)  我的取舍如下：
- (计时) 只使用gettimeofday(2)来获取当前时间 (定时) 只使用timerfd</em><em>系列函数.  因为，gettimeofday(2)的精度足够，timerfd_create(2) 把时间变成一个文件描述符，该“文件”在定时器超时那一刻变得可读，这样就能很方便地融入select(2)/poll(2)框架中，用统一的方式来处理IO事件和超时事件。
-定时器数据结构 TimerQueue需要高效地组织目前尚未到期的Timer，能够快速地根据当前时间找到已经到期的Timer，也要能高效添加和删除Timer。最简单的TimerQueue以按照到期时间排好序的线性表为数据结构，查找复杂度为O(N)。
-另外一种做法是用大顶堆或小顶堆，这样复杂度降为O(logN)，但是C++标准库的make_heap()等函数不能高效地删除heap中间的某个元素，需要我们自己实现。
-还有一种做法是使用二叉搜索树(如std::set/std::map)，把Timer按到期时间先后排好序。操作的复杂度仍然是O(logN)，不过memeory locality比heap要差一些,实际速度可能略慢。 但是我们不能够直接用map，因为这样无法处理两个Timer到期时间相同的情况。可以用std::pair为key, 这样即便两个Timer到期时间相同，他们的地址也是不同的。下面是TimerQueue的接口:
-class TimerQueue : boost::noncopyable { public: TimerQueue(EventLoop</em> loop); ~TimerQueue(); /// /// Schedules the callback to be run at given time, /// repeats if @c interval &gt; 0.
       
     </div>
   </div>

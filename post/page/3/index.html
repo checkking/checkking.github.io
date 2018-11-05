@@ -72,6 +72,23 @@
   
   
   <div>
+    <h2><a href="https://checkking.github.io/post/cs/timer_impl/">Timer定时器的设计和实现</a></h2>
+    <div class="post-style">
+      
+      定时器 在一般的服务端程序设计中，与时间有关的常见任务有：
+ 获取当前时间，计算时间间隔 时区转换与日期计算；把纽约当地时间转换成上海当地时间；2011-02-05之后的100天是几月几号星期几;等等。 定时操作，比如在预定的时间执行任务，或者在一段延时之后执行任务。  这里我们讨论第3项。Linux计时函数有下面这些：
+ time(2) / time_t (s) ftime(3) / struct timeb (ms) gettimeofday(2) / struct timeval (us) clock_gettime(2) / struct timespec (ns)  定时函数，用于让程序等待一段时间或安排计划任务：
+ sleep(3) alarm(2) usleep(3) nanosleep(2) clock_nanosleep(2) gettimer(2) / settimer(2) timer_create(2) / timer_settime(2) / timer_gettime(2) / timer_delete(2) timerfd_create(2) / timerfd_gettime(2) / timerfd<em>settime(2)  我的取舍如下：
+ (计时) 只使用gettimeofday(2)来获取当前时间 (定时) 只使用timerfd</em><em>系列函数.  因为，gettimeofday(2)的精度足够，timerfd_create(2) 把时间变成一个文件描述符，该“文件”在定时器超时那一刻变得可读，这样就能很方便地融入select(2)/poll(2)框架中，用统一的方式来处理IO事件和超时事件。
+定时器数据结构 TimerQueue需要高效地组织目前尚未到期的Timer，能够快速地根据当前时间找到已经到期的Timer，也要能高效添加和删除Timer。最简单的TimerQueue以按照到期时间排好序的线性表为数据结构，查找复杂度为O(N)。
+另外一种做法是用大顶堆或小顶堆，这样复杂度降为O(logN)，但是C++标准库的make_heap()等函数不能高效地删除heap中间的某个元素，需要我们自己实现。
+还有一种做法是使用二叉搜索树(如std::set/std::map)，把Timer按到期时间先后排好序。操作的复杂度仍然是O(logN)，不过memeory locality比heap要差一些,实际速度可能略慢。 但是我们不能够直接用map，因为这样无法处理两个Timer到期时间相同的情况。可以用std::pair为key, 这样即便两个Timer到期时间相同，他们的地址也是不同的。下面是TimerQueue的接口:
+class TimerQueue : boost::noncopyable { public: TimerQueue(EventLoop</em> loop); ~TimerQueue(); /// /// Schedules the callback to be run at given time, /// repeats if @c interval &gt; 0.
+      
+    </div>
+  </div>
+  
+  <div>
     <h2><a href="https://checkking.github.io/post/cs/connection_number_limitation/">如何限制服务器的最大并发连接数</a></h2>
     <div class="post-style">
       
@@ -170,16 +187,6 @@ int sockfd = sockets::createNonblockingOrDie(_serverAddr.family()); int ret = so
   <div>
     <h2><a href="https://checkking.github.io/post/cs/tcp_self_conn/">tcp自连接问题</a></h2>
     <div class="post-style">
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/cs/spurious_wakeup/">pthread_cond_wait的虚假唤醒</a></h2>
-    <div class="post-style">
-      
-      pthread_cond_wait通常用法 pthread_cond_wait的通常使用方法如下：
-#include &lt;pthread.h&gt; struct msg { struct msg <em>m_next; /</em> &hellip; more stuff here &hellip; */ }; struct msg *workq; pthread_cond_t qready = PTHREAD_COND_INITIALIZER; pthread_mutex_t qlock = PTHREAD_MUTEX_INITIALIZER; void process_msg(void) { struct msg <em>mp; for (;;) { pthread_mutex_lock(&amp;qlock); while (workq == NULL) { // (1) pthread_cond_wait(&amp;qready, &amp;qlock); } } mp = workq; workq = mp-&gt;m_next; pthread_mutex_unlock(&amp;qlock); /</em> now process the message mp */ } void enqueue_msg(struct msg *mp) { pthread_mutex_lock(&amp;qlock); mp-&gt;m_next = workq; workq = mp; pthread_mutex_unlock(&amp;qlock); pthread_cond_signal(&amp;qready); }  (1)处为什么要用while, 而不是简单的if呢？这是因为为了避免Spurious wakeup。
       
     </div>
   </div>

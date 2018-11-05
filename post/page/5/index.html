@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="generator" content="Hugo 0.49" />
+  <meta name="author" content="Check King">
+
+  
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Merriweather:400,700%7cOpen&#43;Sans:400,400italic,700%7cRoboto&#43;Mono%25!%28EXTRA%20*hugolib.PageOutput=Page%28/post%29%29">
+  <link rel="stylesheet" href="/styles.css">
+  
+
+  
+
+  
+  <link rel="alternate" href="https://checkking.github.io/post/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  <link rel="feed" href="https://checkking.github.io/post/index.xml" type="application/rss+xml" title="Check King&#39;s Blog">
+  
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/img/favicon/site.webmanifest">
+  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="icon" type="image/png" href="/img/icon.png">
+  <link rel="apple-touch-icon" type="image/png" href="/img/icon-192.png">
+
+  <link rel="canonical" href="https://checkking.github.io/post/">
+
+  <meta property="twitter:card" content="summary_large_image">
+  
+  <meta property="twitter:site" content="@">
+  <meta property="twitter:creator" content="@">
+  
+  <meta property="og:site_name" content="Check King&#39;s Blog">
+  <meta property="og:url" content="https://checkking.github.io/post/">
+  <meta property="og:title" content="Posts | Check King&#39;s Blog">
+  <meta property="og:locale" content="en-us">
+  
+  <meta property="og:updated_time" content="2016-01-01T21:07:16&#43;08:00">
+  
+
+  <title>Posts | Check King&#39;s Blog</title>
+
+  
+
+</head>
+<body>
+
+<style type="text/css">
+
+.masthead-hero {
+  background-image: url("https://checkking.github.io/img/hero.jpg");
+}
+</style>
+
+<div class="masthead-hero"></div>
+
+
+  <h1>Posts</h1>
+
+  
+
+  
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/lang/cpp1/">C&#43;&#43;前向声明</a></h2>
+    <div class="post-style">
+      
+      为什么需要前向声明? 编译器确保在文件中使用的函数没有拼写错误或参数个数不对，因此它坚持要在使用函数之前要看到它的声明， 也就是为了方便编译器生成目标代码，不至于编译成功，运行的时候却失败。比如下面的例子：
+// file func.cpp #include &lt;stdio.h&gt; void func(int a, float b) { (void)a; (void)b; printf(&quot;func(int a, float b)\n&quot;); }  // file main.cpp #include &lt;stdio.h&gt; void func(int a, int b) { (void)a; (void)b; printf(&quot;func(int a, int b)\n&quot;); } // void func(int a, float b); int main(int argc, char** argv) { func(1, 3.0f); return 0; }  我们本意想调用void func(int a, float b)，但是程序执行的时候却调用了void func(int a, int b)，这种错误 很难发现，因为在编译的时候没有报错。
+如果我们把main.cpp改成下面的：
+      
+    </div>
+  </div>
+  
+
+</div>
+<div class="page_footer">
+	<p>&copy; Check King 2018. Powered by <a href="http://gohugo.io/">Hugo</a> and <a href="https://github.com/jhu247/minimal-academic">Minimal Academic</a>.</p>
+</div>
+    
+    
+
+
+  </body>
+</html>

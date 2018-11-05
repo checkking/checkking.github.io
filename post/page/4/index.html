@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-03-04T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-03-06T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,16 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/cs/spurious_wakeup/">pthread_cond_wait的虚假唤醒</a></h2>
+    <div class="post-style">
+      
+      pthread_cond_wait通常用法 pthread_cond_wait的通常使用方法如下：
+#include &lt;pthread.h&gt; struct msg { struct msg <em>m_next; /</em> &hellip; more stuff here &hellip; */ }; struct msg *workq; pthread_cond_t qready = PTHREAD_COND_INITIALIZER; pthread_mutex_t qlock = PTHREAD_MUTEX_INITIALIZER; void process_msg(void) { struct msg <em>mp; for (;;) { pthread_mutex_lock(&amp;qlock); while (workq == NULL) { // (1) pthread_cond_wait(&amp;qready, &amp;qlock); } } mp = workq; workq = mp-&gt;m_next; pthread_mutex_unlock(&amp;qlock); /</em> now process the message mp */ } void enqueue_msg(struct msg *mp) { pthread_mutex_lock(&amp;qlock); mp-&gt;m_next = workq; workq = mp; pthread_mutex_unlock(&amp;qlock); pthread_cond_signal(&amp;qready); }  (1)处为什么要用while, 而不是简单的if呢？这是因为为了避免Spurious wakeup。
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/lang/cpp3/">线程安全的对象生命周期管理</a></h2>
@@ -181,17 +191,6 @@ cat log | awk &lsquo;{match($0, /(BASE_[_A-Z]+)/, a); cnt[a[1]]++} END{for (i in
       问题引入 昨天工作上有一个任务根据nginx日志做一些数据统计。由于日志文件很大，而且不断增大中。如果我要统计一小时以内的日志，这时候就没必要对所有日志都扫一遍。我的初步思路是先用wc -l统计一下日志行数，然后根据当前时间估算出平均每分钟产生了多少条日志。这样就可以估算一小时以内的日志条数了。然后用tail -n就可以了。 但是发现wc -l其实也是有点慢的。从gnu上把bash wc实现代码(<a href="http://mirrors.ustc.edu.cn/gnu/coreutils/coreutils-8.9.tar.gz)wget" target="_blank">http://mirrors.ustc.edu.cn/gnu/coreutils/coreutils-8.9.tar.gz)wget</a> 下来看了。统计单个文件的内部实现是调用read(int filedes, char <em>buf, unsigned nbytes) 先把内容读入buffer，然后按字节统计，在实现上做了一些细节优化，性能还是很好的。 但是不管怎么样还是要对所有字节都扫一遍。有没有更好的方式呢？
 粗略统计文件行数 unix中struct state记录文件所有信息，但是没有文件行数，因此不能直接get到。
 struct stat { dev_t st_dev; /</em> ID of device containing file <em>/ ino_t st_ino; /</em> inode number <em>/ mode_t st_mode; /</em> file type and mode <em>/ nlink_t st_nlink; /</em> number of hard links <em>/ uid_t st_uid; /</em> user ID of owner <em>/ gid_t st_gid; /</em> group ID of owner <em>/ dev_t st_rdev; /</em> device ID (if special file) <em>/ off_t st_size; /</em> total size, in bytes <em>/ blksize_t st_blksize; /</em> blocksize for filesystem I/O <em>/ blkcnt_t st_blocks; /</em> number of 512B blocks allocated <em>/ /</em> Since Linux 2.
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/lang/cpp1/">C&#43;&#43;前向声明</a></h2>
-    <div class="post-style">
-      
-      为什么需要前向声明? 编译器确保在文件中使用的函数没有拼写错误或参数个数不对，因此它坚持要在使用函数之前要看到它的声明， 也就是为了方便编译器生成目标代码，不至于编译成功，运行的时候却失败。比如下面的例子：
-// file func.cpp #include &lt;stdio.h&gt; void func(int a, float b) { (void)a; (void)b; printf(&quot;func(int a, float b)\n&quot;); }  // file main.cpp #include &lt;stdio.h&gt; void func(int a, int b) { (void)a; (void)b; printf(&quot;func(int a, int b)\n&quot;); } // void func(int a, float b); int main(int argc, char** argv) { func(1, 3.0f); return 0; }  我们本意想调用void func(int a, float b)，但是程序执行的时候却调用了void func(int a, int b)，这种错误 很难发现，因为在编译的时候没有报错。
-如果我们把main.cpp改成下面的：
       
     </div>
   </div>
