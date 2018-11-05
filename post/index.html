@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2018-11-05T18:28:59&#43;08:00">
+  <meta property="og:updated_time" content="2018-11-05T21:00:56&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,17 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/go_under_the_hook/interface/">Interface</a></h2>
+    <div class="post-style">
+      
+      引入 func Foo(x interface{}) { if x == nil { fmt.Println(&quot;empty interface&quot;) return } fmt.Println(&quot;non-empty interface&quot;) } func main() { var x *int = nil Foo(x) }  上面的例子的输出结果如下
+$ go run test_interface.go non-empty interface  interface底层结构 根据 interface 是否包含有 method，底层实现上用两种 struct 来表示：iface 和 eface。eface表示不含 method 的 interface 结构，或者叫 empty interface。对于 Golang 中的大部分数据类型都可以抽象出来 _type 结构，同时针对不同的类型还会有一些其他信息。
+type eface struct { _type *_type data unsafe.Pointer } type _type struct { size uintptr // type size ptrdata uintptr // size of memory prefix holding all pointers hash uint32 // hash of type; avoids computation in hash tables tflag tflag // extra type information flags align uint8 // alignment of variable with this type fieldalign uint8 // alignment of struct field with this type kind uint8 // enumeration for C alg *typeAlg // algorithm table gcdata *byte // garbage collection data str nameOff // string form ptrToThis typeOff // type for pointer to this type, may be zero }  iface 表示 non-empty interface 的底层实现。相比于 empty interface，non-empty 要包含一些 method。method 的具体实现存放在 itab.
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/go_under_the_hook/array_and_slice/">Golang array and slice</a></h2>
@@ -163,27 +174,6 @@ tx := db.Begin() tx = tx.Raw(&quot;SELECT * FROM parser_job WHERE id=? FOR UPDAT
  前台线程读(多个，高并发), 后台线程写（少量，低频）
   可以用互斥锁来解决这个问题， shared_ptr存放Map，shared_ptr.swap()实现copy on write
 class CustomerData : boost::noncopyable { public: CustomerData() : _data(new Map) { } int query(const string&amp; customer, const string&amp; stock) const { MapPtr data = getData(); Map::const_iterator entries = data-&gt;find(customer); if (entries != data-&gt;end()) { return findEntry(entries-&gt;second, stock); } else { return -1; } } void update(const string&amp; customer, const EntryList&amp; entries) { MutexLockGuard lock(_mutex); if (!
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/arch/rate_limitator/">接口流量控制</a></h2>
-    <div class="post-style">
-      
-      背景 公有云的服务通常是将私有云的服务进行包装，并对外提供服务的，由于业务应用系统的负载能力有限，为了防止非预期的请求对系统压力过大而拖垮业务应用系统，需要对请求流量进行限速。
-漏斗算法 漏桶(Leaky Bucket)算法思路很简单,水(请求)先进入到漏桶里,漏桶以一定的速度出水(接口有响应速率),当水流入速度过大会直接溢出(访问频率超过接口响应速率),然后就拒绝请求,可以看出漏桶算法能强行限制数据的传输速率。
- 优点  可以让流量匀速通过，实现简单
- 缺点  流量始终匀速输出，对于突发特性的流量支持地不好
- 实现  用一个队列即可搞定，消费者线程匀速取出
-令牌桶算法 令牌桶算法(Token Bucket)和 Leaky Bucket 效果一样但方向相反的算法,更加容易理解.随着时间流逝,系统会按恒定1/QPS时间间隔(如果QPS=100,则间隔是10ms)往桶里加入Token(想象和漏洞漏水相反,有个水龙头在不断的加水),如果桶已经满了就不再加了.新请求来临时,会各自拿走一个Token,如果没有Token可拿了就阻塞或者拒绝服务.
- 优点  可以应对突发性的流量
- 缺点  实现起来不是很容易
- 实现  下面详细
-通过redis实现令牌桶算法进行流量控制 流量控制项目  单个Ip访问速度限制  规则: reqs / seconds， 例如: 300 / 60, 表示每分钟最多允许300个请求，也就是平均每秒钟5个请求，但是我们可以允许流量的抖动，允许每5秒内有100个请求，这时，我们可以这样设定： 100 / 5, 两个规则加在一起就能满足两个要求了。
-具体流程：
-一个请求过来，对于每个规则构造key:
-key = GLOBAL_PREFIX_FOR_REDIS + PREFIX_RATE_LIMIT + KEY_SPLIT_FLAG + request.getClientIp() + i;   判断redis中key对应的列表长度, 如果列表长度小于限制，则通过; 如果大于等于限制，首先判断最早加入列表的元素（time）时间和当前时间差是否大于perSecond， 如果是，则将最早的时间元素从redis中移除，并将当前时间元素加入redis，允许请求通过，而且标记上后续清理过期的时间项目。如果不允许通过，则抛出异常  // 统计是否封禁 for (int i = 0; maxRateLimitPerIps !
       
     </div>
   </div>
