@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-02-28T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-03-04T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,21 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/lang/cpp3/">线程安全的对象生命周期管理</a></h2>
+    <div class="post-style">
+      
+      对象销毁不容易 对一般成员函数而言，做到线程安全的办法是让他们顺次执行，而不要并发执行（不要同时读写共享状态），也就是让每个成员函数的临界区不重叠。不过这里有一个隐含条件：成员函数用来保护临界区的互斥器本身是有效的。而析构函数破坏了这一假设，它会把mutex成员变量销毁掉。请看下面的例子：
+Foo::~Foo() { MutexLockGuard lock(_mutex); // free internal state (1) }  void Foo::update() { MutexLocakGuard lock(_mutex); // (2) // make use of internal state }  此时，有A,B两个线程都能看到Foo对象x, 线程A即将销毁x，而线程B正准备调用x-&gt;update().
+extern Foo* x; // visibale by all threads // thread A delete x; x = NULL; // thread B if (x) { x-&gt;update(); }  这里有一个race condition:
+ 线程执行到(1)处，已经持有了互斥锁，即将继续往下执行。 线程B通过了if(x)检查（此时x被销毁，但还没有执行x=NULL），接着阻塞在(2)处。  接下来会发生什么是不确定的，因为析构函数会把_mutex销毁，那么(2)处有可能永远阻塞下去，有可能进入临界区，然后core dump，或更糟糕的情况。
+这个例子说明，作为class的数据成员MutexLock只能同步本class的其他数据成员的读写，他不能保护安全地析构。因为MutexLock成员的生命周期最多和本class一样长，而析构函数可说是发生在对象身故之后。
+另外，如果要同时读写一个class的两个对象，有潜在的死锁可能。比如说有swap这个函数：
+void swap(Conter&amp; a, Counter&amp; b) { MutexLockGuard aLock(a.
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/lang/cpp2/">谈谈enable_shared_from_this</a></h2>
