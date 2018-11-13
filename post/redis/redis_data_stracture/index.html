@@ -159,7 +159,7 @@
 <li>redis字符串是一个二进制安全的，并自带有长度信息。字符串叫做「SDS」，也就是Simple Dynamic String.</li>
 </ul>
 
-<pre><code class="language-c">struct SDS&lt;T&gt; {
+<pre><code>struct SDS&lt;T&gt; {
   T capacity; // 数组容量
   T len; // 数组长度
   byte flags; // 特殊标识位，不理睬它
@@ -196,7 +196,7 @@
 <li>quicklist时ziplist和linkedlist的混合体，它将linkedlist按段切分，每一段使用ziplist来紧凑存储，多个ziplist之间使用双向指针串接起来。</li>
 </ul>
 
-<pre><code class="language-c">struct ziplist {
+<pre><code>struct ziplist {
     ...
 }
 struct ziplist_compressed {
