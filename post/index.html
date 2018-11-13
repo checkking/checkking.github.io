@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2018-11-13T14:18:15&#43;08:00">
+  <meta property="og:updated_time" content="2018-11-13T16:56:14&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,13 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/redis/redis_persistence/">Redis持久化</a></h2>
+    <div class="post-style">
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/redis/redis_data_stracture/">Redis数据结构相关</a></h2>
@@ -161,15 +168,6 @@ func (r *Request) ReplyRunOnceDataV2(statuscode int, contentType string, data []
       问题描述 最近项目遇到这样一个问题，有一个用mysql数据库表模拟的任务队列，生产者会往表中增加任务，消费者采用轮询的方式去获取任务。其中新加入的任务的状态为NEW(1)，当任务被拿走并处于计算中的状态为PENDING(2)，当任务处理成功的状态为SUCCESS(0)，当任务被处理失败的状态为FAILED(3)。消费者从轮询数据库，如果有NEW状态的任务，拿到任务，则修改状态为PENDING。问题是，有多个消费者同时去查询数据库表，并更新表项，存在并发问题。
 初步解决 对于数据库并发问题，一个直觉的做法就是采用加锁的办法，因此采用下面这种方式实现:
 tx := db.Begin() tx = tx.Raw(&quot;SELECT * FROM parser_job WHERE id=? FOR UPDATE&quot;, job.Id).Scan(&amp;job) if tx.RecordNotFound() { tx.Rollback() return nil, nil } if tx.Error != nil { logs.Errorf(&quot;DequeJob db query failed, err:%s&quot;, tx.Error.Error()) tx.Rollback() return nil, errors.New(tx.Error.Error()) } columns := make(map[string]interface{}, 0) columns[&quot;status&quot;] = common.STATUS_PENDING err := tx.Exec(&quot;UPDATE parser_job SET status=? WHERE id=?&quot;, common.STATUS_PENDING, job.Id).Error if err != nil { logs.Errorf(&quot;DequeJob db update failed, err:%s&quot;, err.
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/nginx/nginx8/">nginx配置管理源码解析</a></h2>
-    <div class="post-style">
-      
-      一个典型的nginx.conf配置 worker_processes 1; events { worker_connections 1024; } http { include mime.types; default_type application/octet-stream; log_format main &lsquo;$remote_addr - $remote_user [$time_local] &quot;$request&quot; &lsquo; &lsquo;$status $body_bytes_sent $request_id &quot;$http_referer&quot; &lsquo; &lsquo;&quot;$http_user_agent&quot; &quot;$http_x_forwarded_for&quot;&rsquo;; access_log logs/access.log main; sendfile on; #tcp_nopush on; #keepalive_timeout 0; keepalive_timeout 65; #gzip on; server { listen 80; server_name www.domain.com; root /root/com/domain/www; index index.html index.htm index.php; location ~ .(jpg|png|gif|js|css|swf|flv|ico)$ { expires 12h; } #charset koi8-r; access_log logs/host.access.log main; error_log logs/host.error.log debug; location / { if (!
       
     </div>
   </div>

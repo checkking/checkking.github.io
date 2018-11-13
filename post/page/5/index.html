@@ -72,6 +72,16 @@
   
   
   <div>
+    <h2><a href="https://checkking.github.io/post/nginx/nginx3/">nginx location &amp; rewrite 配置总结</a></h2>
+    <div class="post-style">
+      
+      location正则写法 一个示例：
+location = / { # 精确匹配 / ，主机名后面不能带任何字符串 [ configuration A ] } location / { # 因为所有的地址都以 / 开头，所以这条规则将匹配到所有请求 # 但是正则和最长字符串会优先匹配 [ configuration B ] } location /documents/ { # 匹配任何以 /documents/ 开头的地址，匹配符合以后，还要继续往下搜索 # 只有后面的正则表达式没有匹配到时，这一条才会采用这一条 [ configuration C ] } location ~ /documents/Abc { # 匹配任何以 /documents/Abc 开头的地址，匹配符合以后，还要继续往下搜索 # 只有后面的正则表达式没有匹配到时，这一条才会采用这一条 [ configuration CC ] } location ^~ /images/ { # 匹配任何以 /images/ 开头的地址，匹配符合以后，停止往下搜索正则，采用这一条。 [ configuration D ] } location ~* .
+      
+    </div>
+  </div>
+  
+  <div>
     <h2><a href="https://checkking.github.io/post/cs/singals/">信号量处理总结</a></h2>
     <div class="post-style">
       

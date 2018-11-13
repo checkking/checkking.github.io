@@ -6,10 +6,19 @@
     <description>Recent content in Posts on Check King&#39;s Blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <copyright>&amp;copy; Check King 2018</copyright>
-    <lastBuildDate>Tue, 13 Nov 2018 14:18:15 +0800</lastBuildDate>
+    <lastBuildDate>Tue, 13 Nov 2018 16:56:14 +0800</lastBuildDate>
     
 	<atom:link href="https://checkking.github.io/post/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Redis持久化</title>
+      <link>https://checkking.github.io/post/redis/redis_persistence/</link>
+      <pubDate>Tue, 13 Nov 2018 16:56:14 +0800</pubDate>
+      
+      <guid>https://checkking.github.io/post/redis/redis_persistence/</guid>
+      <description> 持久化  redis持久化包括rdb, aof, rdb是快照的全量备份的方式，aof是增量备份的方式, aof 可以采用aof重写使其进行紧凑。 redis rdb 采用cow技术，保证父进程同时也允许写操作。  </description>
+    </item>
     
     <item>
       <title>Redis数据结构相关</title>
