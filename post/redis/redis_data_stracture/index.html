@@ -167,8 +167,9 @@
 }
 </code></pre>
 
-<p>s
-* 当字符串长度很短时，使用embstr的格式，当长度超过44字节时，使用raw形式存储。raw形式字符串内容与RedisObject对象的不是在一个连续的内存空间中。</p>
+<ul>
+<li>当字符串长度很短时，使用embstr的格式，当长度超过44字节时，使用raw形式存储。raw形式字符串内容与RedisObject对象的不是在一个连续的内存空间中。</li>
+</ul>
 
 <p><img src="https://images-cdn.shimo.im/hf1KV9LmDY4no4Ha/redis_obj.png!thumbnail" alt="redis string" /></p>
 
