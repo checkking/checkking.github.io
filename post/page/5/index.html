@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-02-07T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-02-09T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,17 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/cs/singals/">信号量处理总结</a></h2>
+    <div class="post-style">
+      
+      背景 最近在做一个实时日志监控系统，系统架构是filebeat+logstash+twisted, 其中filebeat用来监控日志文件的新增变动，logstash格式化日志，twisted作为server，接收logstash的输入, 实时计算ctr， server的统计数据要每小时持久化一次，也就是要写进mysql数据库中。但是在写入Mysql的过程中不影响server接收请求处理。因此想到的方案是在进入下一个小时的这一时刻fork一个进程，然后再子进程中 进行写入mysql操作。这种方案和redis写入快照的方案一样，因为twisted和redis都是基于事件的单进程单线程服务器模型, 利用fork的copy on write，保证在子进程中数据和父进程不会混乱。这种方案是work的。 但是twisted中用信号量有一点小问题，就是不能用SIGCHLD这个信号量来通知父进程子进程退出了, 最终无奈让子进程在退出前向父进程发送SIGUSR1自定义信号量, 父进程在收到这个信号量时改变状态参数。 之前对信号量处理上有些模糊的地方，想通过本篇博客总结一下。
+什么是信号量 Unix信号是Unix系统的一种软件形式异常，一个信号就是一条消息，它通知进程系统中发生了一个某种类型的事件。在linux下输入&rdquo;man 7 signal&rdquo;就能得到Linux系统上支持的30中不同类型的信号。
+   Signal Value Action Comment     SIGHUP 1 Term Hangup detected on controlling terminal or death of controlling process   SIGINT 2 Term Interrupt from keyboard   SIGQUIT 3 Core Quit from keyboard   SIGILL 1 Term Hangup detected on controlling terminal or death of controlling process   SIGINT 4 Core Illegal Instruction   SIGABRT 6 Core Abort signal from abort(3)   SIGFPE 8 Core Floating point exception   SIGKILL 9 Term Kill signal   SIGSEGV 11 Core Invalid memory reference   SIGPIPE 13 Term Broken pipe: write to pipe with noreaders   SIGALRM 14 Term Timer signal from alarm(2)   SIGTERM 15 Term Termination signal   SIGUSR1 30,10,16 Term User-defined signal 1   SIGUSR2 31,12,17 Term User-defined signal 2   SIGCHLD 20,17,18 Ign Child stopped or terminated   SIGCONT 19,18,25 Cont Continue if stopped   SIGSTOP 17,19,23 Stop Stop process   SIGTSTP 18,20,24 Stop Stop typed at terminal   SIGTTIN 21,21,26 Stop Terminal input for background process   SIGTTOU 22,22,27 Stop Terminal output for background process    还有其他的没有列出来，可以自行查阅。信号提供了一种机制，通知用户进程发生了这些异常。 比如一个进程试图除以0，那么内核就发送给它一个SIGFPE信号。如果进程进行非法存储器引用，内核就发送一条 SIGSEGV信号， 当一个子进程终止或停止时，内核发送一个SIGCHLD信号给父进程。
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/cs/linux_useful_bash/">工作中常用的Linux命令</a></h2>

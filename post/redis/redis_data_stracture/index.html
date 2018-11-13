@@ -10,7 +10,7 @@
 
   
   <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Merriweather:400,700%7cOpen&#43;Sans:400,400italic,700%7cRoboto&#43;Mono%25!%28EXTRA%20*hugolib.PageOutput=Page%28/post/arch/kafka.md%29%29">
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Merriweather:400,700%7cOpen&#43;Sans:400,400italic,700%7cRoboto&#43;Mono%25!%28EXTRA%20*hugolib.PageOutput=Page%28/post/redis/redis_data_stracture.md%29%29">
   <link rel="stylesheet" href="/styles.css">
   
 
@@ -33,7 +33,7 @@
   <link rel="icon" type="image/png" href="/img/icon.png">
   <link rel="apple-touch-icon" type="image/png" href="/img/icon-192.png">
 
-  <link rel="canonical" href="https://checkking.github.io/post/arch/kafka/">
+  <link rel="canonical" href="https://checkking.github.io/post/redis/redis_data_stracture/">
 
   <meta property="twitter:card" content="summary_large_image">
   
@@ -41,16 +41,16 @@
   <meta property="twitter:creator" content="@">
   
   <meta property="og:site_name" content="Check King&#39;s Blog">
-  <meta property="og:url" content="https://checkking.github.io/post/arch/kafka/">
-  <meta property="og:title" content="Kafka简单总结 | Check King&#39;s Blog">
+  <meta property="og:url" content="https://checkking.github.io/post/redis/redis_data_stracture/">
+  <meta property="og:title" content="Redis数据结构相关 | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="article:published_time" content="2018-11-13T10:21:04&#43;08:00">
+  <meta property="article:published_time" content="2018-11-13T14:18:15&#43;08:00">
   
-  <meta property="article:modified_time" content="2018-11-13T10:21:04&#43;08:00">
+  <meta property="article:modified_time" content="2018-11-13T14:18:15&#43;08:00">
   
 
-  <title>Kafka简单总结 | Check King&#39;s Blog</title>
+  <title>Redis数据结构相关 | Check King&#39;s Blog</title>
 
   
 
@@ -129,7 +129,7 @@
 </div>
 				<article class="post" itemscope itemtype="http://schema.org/Article">
   <div class="post-container">
-    <h1 itemprop="name"><a href="https://checkking.github.io/post/arch/kafka/">Kafka简单总结</a></h1>
+    <h1 itemprop="name"><a href="https://checkking.github.io/post/redis/redis_data_stracture/">Redis数据结构相关</a></h1>
 
     
       
@@ -138,7 +138,7 @@
 
   <span class="post-date">
     
-    <time datetime="2018-11-13 10:21:04 &#43;0800 CST" itemprop="datePublished dateModified">
+    <time datetime="2018-11-13 14:18:15 &#43;0800 CST" itemprop="datePublished dateModified">
       Nov 13, 2018
     </time>
   </span>
@@ -153,45 +153,78 @@
       
       
 
-<h3 id="kafka整体架构">Kafka整体架构</h3>
-
-<p>一个典型的Kafka集群中包含若干Producer（可以是web前端产生的Page View，或者是服务器日志，系统CPU、Memory等），若干broker（Kafka支持水平扩展，一般broker数量越多，集群吞吐率越高），若干Consumer Group，以及一个Zookeeper集群。Kafka通过Zookeeper管理集群配置，选举leader，以及在Consumer Group发生变化时进行rebalance。Producer使用push模式将消息发布到broker，Consumer使用pull模式从broker订阅并消费消息。 　</p>
-
-<h4 id="topic-partition-consumer-group">Topic &amp; Partition &amp; consumer group</h4>
-
-<p>Topic在逻辑上可认为是一个队列，每条消息都必须制定它的Topic，也就是指明放在哪个队列上。为了提高Kafka的吞吐率，物理上把Topic分成一个或多个partition，每个Partition在物理上是一个文件夹，包含这个partition的所有消息，以及消息的索引, 消息存储在日志文件中，消息格式如下：</p>
-
-<pre><code>　message length ： 4 bytes (value: 1+4+n)
-　&quot;magic&quot; value ： 1 byte
-　　crc ： 4 bytes
-　　payload ： n bytes
-</code></pre>
-
-<p>这个log entry并非由一个文件构成，而是分成多个segment，每个segment以该segment第一条消息的offset命名并以“.kafka”为后缀。另外会有一个索引文件，它标明了每个segment下包含的log entry的offset范围，如下图所示。</p>
-
-<p><img src="http://www.jasongj.com/img/kafka/KafkaColumn1/partition_segment.png" alt="kafka消息格式" /></p>
+<h3 id="字符串">字符串</h3>
 
 <ul>
-<li><p>每条消息都被append到该Partition中，属于顺序写磁盘，因此效率非常高.</p></li>
-
-<li><p>每个partition的消息能够保序, 消息全局不保序。</p></li>
-
-<li><p>同一Topic的一条消息只能被同一个Consumer Group内的一个Consumer消费，但多个Consumer Group可同时消费这一消息。</p></li>
-
-<li><p>kafka的消费者消费消息是采用pull模式。</p></li>
-
-<li><p>Kafka会为每一个Consumer Group保留一些metadata信息——当前消费的消息的position，也即offset。这个offset由Consumer控制。</p></li>
+<li>redis字符串是一个二进制安全的，并自带有长度信息。字符串叫做「SDS」，也就是Simple Dynamic String.
+<code>c
+struct SDS&lt;T&gt; {
+T capacity; // 数组容量
+T len; // 数组长度
+byte flags; // 特殊标识位，不理睬它
+byte[] content; // 数组内容
+}
+</code></li>
+<li>当字符串长度很短时，使用embstr的格式，当长度超过44字节时，使用raw形式存储。raw形式字符串内容与RedisObject对象的不是在一个连续的内存空间中。</li>
 </ul>
 
-<h3 id="kafka-ha">Kafka HA</h3>
+<p><img src="https://images-cdn.shimo.im/hf1KV9LmDY4no4Ha/redis_obj.png!thumbnail" alt="redis string" /></p>
+
+<h3 id="字典">字典</h3>
 
 <ul>
-<li>kafka 为了避免broker宕机引起的不可用问题，引入Replication来保证高可用。</li>
-<li>为了解决引入replica所带来的消息复制效率问题，引入leader来解决这个问题，保证leader写成功，并且确保isr都写入成功。</li>
-<li>leader选主通过类似PacificA算法。</li>
+<li>dict有两个hasttable,通常情况下只有一个hashtable有值，但在dict扩容缩容时，要分配新的hashtable。
+<img src="https://images-cdn.shimo.im/lU9TCgUPbYstRBnf/redis_dict.png!thumbnail" alt="redis_dict_ht" /></li>
+<li>渐进式rehash: 当redis处于rehash进程中，redis的增删修改等操作都会触发rehash小步搬迁,并且redis还会在定时任务中对词典进行主动搬迁。</li>
 </ul>
 
-<p>注：后续需要详细研究一下。</p>
+<h3 id="压缩列表">压缩列表</h3>
+
+<ul>
+<li>zset和hash容器对象在元素个数较少的时候，采用压缩列表(ziplist)进行存储。</li>
+<li>当set集合容纳的元素都是整数并且元素个数较小时，Redis会使用intset来存储结合元素。
+<img src="https://images-cdn.shimo.im/tpdBS5DNyRIQ3vQ4/ziplist.png!thumbnail" alt="ziplist" /></li>
+</ul>
+
+<h3 id="快速列表">快速列表</h3>
+
+<ul>
+<li>redis为了节省普通列表因pre,next指针所带来的内存开销和碎片化，采用快速列表的来实现列表。</li>
+<li>quicklist时ziplist和linkedlist的混合体，它将linkedlist按段切分，每一段使用ziplist来紧凑存储，多个ziplist之间使用双向指针串接起来。
+<code>c
+struct ziplist {
+...
+}
+struct ziplist_compressed {
+int32 size;
+byte[] compressed_data;
+}
+struct quicklistNode {
+quicklistNode* prev;
+quicklistNode* next;
+ziplist* zl; // 指向压缩列表
+int32 size; // ziplist 的字节总数
+int16 count; // ziplist 中的元素数量
+int2 encoding; // 存储形式 2bit，原生字节数组还是 LZF 压缩存储
+...
+}
+struct quicklist {
+quicklistNode* head;
+quicklistNode* tail;
+long count; // 元素总数
+int nodes; // ziplist 节点的个数
+int compressDepth; // LZF 算法压缩深度
+...
+}
+</code></li>
+</ul>
+
+<h3 id="跳跃列表">跳跃列表</h3>
+
+<ul>
+<li>zset内部实现时基于dict和skiplist</li>
+<li>zset每一个层元素的遍历都是从 kv header 出发。</li>
+</ul>
 
     </div>
 
@@ -206,28 +239,28 @@
   <ul class="share">
     <li>
       <a class="twitter"
-         href="https://twitter.com/intent/tweet?text=Kafka%e7%ae%80%e5%8d%95%e6%80%bb%e7%bb%93&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2farch%2fkafka%2f"
+         href="https://twitter.com/intent/tweet?text=Redis%e6%95%b0%e6%8d%ae%e7%bb%93%e6%9e%84%e7%9b%b8%e5%85%b3&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2fredis%2fredis_data_stracture%2f"
          target="_blank" rel="noopener">
         <i class="fa fa-twitter"></i>
       </a>
     </li>
     <li>
       <a class="facebook"
-         href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fcheckking.github.io%2fpost%2farch%2fkafka%2f"
+         href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fcheckking.github.io%2fpost%2fredis%2fredis_data_stracture%2f"
          target="_blank" rel="noopener">
         <i class="fa fa-facebook"></i>
       </a>
     </li>
     <li>
       <a class="linkedin"
-         href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2farch%2fkafka%2f&amp;title=Kafka%e7%ae%80%e5%8d%95%e6%80%bb%e7%bb%93"
+         href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fcheckking.github.io%2fpost%2fredis%2fredis_data_stracture%2f&amp;title=Redis%e6%95%b0%e6%8d%ae%e7%bb%93%e6%9e%84%e7%9b%b8%e5%85%b3"
          target="_blank" rel="noopener">
         <i class="fa fa-linkedin"></i>
       </a>
     </li>
     <li>
       <a class="email"
-         href="mailto:?subject=Kafka%e7%ae%80%e5%8d%95%e6%80%bb%e7%bb%93&amp;body=https%3a%2f%2fcheckking.github.io%2fpost%2farch%2fkafka%2f">
+         href="mailto:?subject=Redis%e6%95%b0%e6%8d%ae%e7%bb%93%e6%9e%84%e7%9b%b8%e5%85%b3&amp;body=https%3a%2f%2fcheckking.github.io%2fpost%2fredis%2fredis_data_stracture%2f">
         <i class="fa fa-envelope"></i>
       </a>
     </li>
