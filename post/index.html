@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2018-11-05T21:00:56&#43;08:00">
+  <meta property="og:updated_time" content="2018-11-13T10:21:04&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,13 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/arch/kafka/">Kafka</a></h2>
+    <div class="post-style">
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/go_under_the_hook/interface/">Golang Interface</a></h2>
@@ -161,19 +168,6 @@ tx := db.Begin() tx = tx.Raw(&quot;SELECT * FROM parser_job WHERE id=? FOR UPDAT
   <div>
     <h2><a href="https://checkking.github.io/post/lang/cpp4/">为什么析构函数不能抛出异常</a></h2>
     <div class="post-style">
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/lang/cpp5/">阅读笔记-线程安全的对象生命周期管理</a></h2>
-    <div class="post-style">
-      
-      避免使用原始指针，最佳实践是shared_ptr和weak_ptr的结合。因为原始指针容易造成空悬指针/野指针(因为在一个线程里调用一个对象，这个对象可能在其他的线程里被销毁了)， shared_ptr通过引用计数的方式保证有线程引用对象的时候，对象不会被销毁，weak_ptr的引入可以避免shared_ptr带来的延长对象生命周期的问题。
- 用enable_shared_ptr可以避免回调函数注册时传入的对象指针this，在回调的时候变成野指针（boost::bind传入this作为当前对象，但是在回调的时候，this可能被销毁了）
- 前台线程读(多个，高并发), 后台线程写（少量，低频）
-  可以用互斥锁来解决这个问题， shared_ptr存放Map，shared_ptr.swap()实现copy on write
-class CustomerData : boost::noncopyable { public: CustomerData() : _data(new Map) { } int query(const string&amp; customer, const string&amp; stock) const { MapPtr data = getData(); Map::const_iterator entries = data-&gt;find(customer); if (entries != data-&gt;end()) { return findEntry(entries-&gt;second, stock); } else { return -1; } } void update(const string&amp; customer, const EntryList&amp; entries) { MutexLockGuard lock(_mutex); if (!
       
     </div>
   </div>

@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-03-12T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-03-15T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,18 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/cs/nonblock_socket_conn/">非阻塞socket调用connect</a></h2>
+    <div class="post-style">
+      
+      我们知道，如果socket为TCP套接字，则connect函数会激发TCP的三次握手过程，而三次握手是需要一些时间的，内核中对connect的超时限制是75秒，就是说如果超过75秒则connect会由于超时而返回失败。但是如果对端服务器由于某些问题无法连接，那么每一个客户端发起的connect都会要等待75才会返回，因为socket默认是阻塞的。对于一些线上服务来说，假设某些对端服务器出问题了，在这种情况下就有可能引发严重的后果。或者在有些时候，我们不希望在调用connect的时候阻塞住，有一些额外的任务需要处理。
+这种场景下，我们就可以将socket设置为非阻塞，如下代码：
+int flags = fcntl(c_fd, F_GETFL, 0); if(flags &lt; 0) { return 0; } fcntl(c_fd, F_SETFL, flags | O_NONBLOCK);  当我们将socket设置为NONBLOCK后，在调用connect的时候，如果操作不能马上完成，那connect便会立即返回，此时connect有可能返回-1， 此时需要根据相应的错误码errno，来判断连接是否在继续进行。比较完整的做法如下:
+int sockfd = sockets::createNonblockingOrDie(_serverAddr.family()); int ret = sockets::connect(sockfd, _serverAddr.getSockAddr()); int savedErrno = (ret == 0) ? 0 : errno; switch (savedErrno) { case 0: case EINPROGRESS: case EINTR: case EISCONN: connecting(sockfd); break; case EAGAIN: case EADDRINUSE: case EADDRNOTAVAIL: case ECONNREFUSED: case ENETUNREACH: retry(sockfd); break; case EACCES: case EPERM: case EAFNOSUPPORT: case EALREADY: case EBADF: case EFAULT: case ENOTSOCK: LOG_ERROR &lt;&lt; &quot;connect error in Connector::startInLoop &quot; &lt;&lt; savedErrno; sockets::close(sockfd); break; default: LOG_ERROR &lt;&lt; &quot;Unexpected error in Connector::startInLoop &quot; &lt;&lt; savedErrno; sockets::close(sockfd); break; }  使用非阻塞 connect 需要注意的问题是： 1.
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/cs/tcp_self_conn/">tcp自连接问题</a></h2>
@@ -175,18 +187,6 @@ location = / { # 精确匹配 / ，主机名后面不能带任何字符串 [ con
       背景 最近在做一个实时日志监控系统，系统架构是filebeat+logstash+twisted, 其中filebeat用来监控日志文件的新增变动，logstash格式化日志，twisted作为server，接收logstash的输入, 实时计算ctr， server的统计数据要每小时持久化一次，也就是要写进mysql数据库中。但是在写入Mysql的过程中不影响server接收请求处理。因此想到的方案是在进入下一个小时的这一时刻fork一个进程，然后再子进程中 进行写入mysql操作。这种方案和redis写入快照的方案一样，因为twisted和redis都是基于事件的单进程单线程服务器模型, 利用fork的copy on write，保证在子进程中数据和父进程不会混乱。这种方案是work的。 但是twisted中用信号量有一点小问题，就是不能用SIGCHLD这个信号量来通知父进程子进程退出了, 最终无奈让子进程在退出前向父进程发送SIGUSR1自定义信号量, 父进程在收到这个信号量时改变状态参数。 之前对信号量处理上有些模糊的地方，想通过本篇博客总结一下。
 什么是信号量 Unix信号是Unix系统的一种软件形式异常，一个信号就是一条消息，它通知进程系统中发生了一个某种类型的事件。在linux下输入&rdquo;man 7 signal&rdquo;就能得到Linux系统上支持的30中不同类型的信号。
    Signal Value Action Comment     SIGHUP 1 Term Hangup detected on controlling terminal or death of controlling process   SIGINT 2 Term Interrupt from keyboard   SIGQUIT 3 Core Quit from keyboard   SIGILL 1 Term Hangup detected on controlling terminal or death of controlling process   SIGINT 4 Core Illegal Instruction   SIGABRT 6 Core Abort signal from abort(3)   SIGFPE 8 Core Floating point exception   SIGKILL 9 Term Kill signal   SIGSEGV 11 Core Invalid memory reference   SIGPIPE 13 Term Broken pipe: write to pipe with noreaders   SIGALRM 14 Term Timer signal from alarm(2)   SIGTERM 15 Term Termination signal   SIGUSR1 30,10,16 Term User-defined signal 1   SIGUSR2 31,12,17 Term User-defined signal 2   SIGCHLD 20,17,18 Ign Child stopped or terminated   SIGCONT 19,18,25 Cont Continue if stopped   SIGSTOP 17,19,23 Stop Stop process   SIGTSTP 18,20,24 Stop Stop typed at terminal   SIGTTIN 21,21,26 Stop Terminal input for background process   SIGTTOU 22,22,27 Stop Terminal output for background process    还有其他的没有列出来，可以自行查阅。信号提供了一种机制，通知用户进程发生了这些异常。 比如一个进程试图除以0，那么内核就发送给它一个SIGFPE信号。如果进程进行非法存储器引用，内核就发送一条 SIGSEGV信号， 当一个子进程终止或停止时，内核发送一个SIGCHLD信号给父进程。
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/cs/linux_useful_bash/">工作中常用的Linux命令</a></h2>
-    <div class="post-style">
-      
-      统计  统计当前目录下的所有文件行数： bash wc -l *  当前目录以及子目录的所有文件行数： bash find . * | xargs wc -l  统计目录以及子目录所有c文件行数：
-find . -name &quot;*.c&quot; | xargs wc -l  统计某小时中各分钟的请求个数:
-cat access.log | grep 3cf0266e | grep &quot;16/Mar/2017:15&quot; | awk &lsquo;{print $4}&rsquo; | awk -F&rsquo;:&rsquo; &lsquo;{sum[$3]++}END{for (i in sum) print i, sum[i]}&rsquo; | sort -k1  正则统计某个字符串出现的次数:
-cat log | awk &lsquo;{match($0, /(BASE_[_A-Z]+)/, a); cnt[a[1]]++} END{for (i in cnt) {print i&quot;\t&quot;cnt[i]}}&rsquo;   查找与替换  查找当前目录下所有的文件包含某字符串 bash grep str *  查找包含某字符串的所有c++文件
       
     </div>
   </div>

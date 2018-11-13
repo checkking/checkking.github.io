@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-05-01T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-05-13T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,19 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/lang/cpp5/">阅读笔记-线程安全的对象生命周期管理</a></h2>
+    <div class="post-style">
+      
+      避免使用原始指针，最佳实践是shared_ptr和weak_ptr的结合。因为原始指针容易造成空悬指针/野指针(因为在一个线程里调用一个对象，这个对象可能在其他的线程里被销毁了)， shared_ptr通过引用计数的方式保证有线程引用对象的时候，对象不会被销毁，weak_ptr的引入可以避免shared_ptr带来的延长对象生命周期的问题。
+ 用enable_shared_ptr可以避免回调函数注册时传入的对象指针this，在回调的时候变成野指针（boost::bind传入this作为当前对象，但是在回调的时候，this可能被销毁了）
+ 前台线程读(多个，高并发), 后台线程写（少量，低频）
+  可以用互斥锁来解决这个问题， shared_ptr存放Map，shared_ptr.swap()实现copy on write
+class CustomerData : boost::noncopyable { public: CustomerData() : _data(new Map) { } int query(const string&amp; customer, const string&amp; stock) const { MapPtr data = getData(); Map::const_iterator entries = data-&gt;find(customer); if (entries != data-&gt;end()) { return findEntry(entries-&gt;second, stock); } else { return -1; } } void update(const string&amp; customer, const EntryList&amp; entries) { MutexLockGuard lock(_mutex); if (!
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/arch/rate_limitator/">接口流量控制</a></h2>
@@ -196,13 +209,6 @@ Locality-aware Locality-aware load balancing，能根据下游节点的负载分
 一种分析方法如下：
  稳定状态时的QPS显然和其分流权值W成正比，即W1 / W2 ≈ QPS1 / QPS2。 根据分流公式又有：W1 / W2 = QPS1 / QPS2 * (L2 / L1)。  故稳定状态时L1和L2应当是趋同的。当L1小于L2时，节点1会更获得相比其QPS1更大的W1，从而在未来获得更多的流量，直到其延时高于平均值或没有更多的流量。
 注意这个算法并不是按照延时的比例来分流，不是说一个下游30ms，另一个60ms，它们的流量比例就是60 / 30。而是30ms的节点会一直获得流量直到它的延时高于60ms，或者没有更多流量了。以下图为例，曲线1和曲线2分别是节点1和节点2的延时与吞吐关系图，随着吞吐增大延时会逐渐升高，接近极限吞吐时，延时会飙升。左下的虚线标记了QPS=400时的延时，此时虽然节点1的延时有所上升，但还未高于节点2的基本延时（QPS=0时的延时），所以所有流量都会分给节点1，而不是按它们基本延时的比例（图中大约2:1）。当QPS继续上升达到1600时，分流比例会在两个节点延时相等时平衡，图中为9 : 7。很明显这个比例是高度非线性的，取决于不同曲线的组合，和单一指标的比例关系没有直接关联。在真实系统中，延时和吞吐的曲线也在动态变化着，分流比例更加动态。
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/mind/tech_road/">读《技术人员的发展之路》之感</a></h2>
-    <div class="post-style">
       
     </div>
   </div>

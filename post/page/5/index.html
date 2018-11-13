@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-01-13T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-02-07T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,18 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/cs/linux_useful_bash/">工作中常用的Linux命令</a></h2>
+    <div class="post-style">
+      
+      统计  统计当前目录下的所有文件行数： bash wc -l *  当前目录以及子目录的所有文件行数： bash find . * | xargs wc -l  统计目录以及子目录所有c文件行数：
+find . -name &quot;*.c&quot; | xargs wc -l  统计某小时中各分钟的请求个数:
+cat access.log | grep 3cf0266e | grep &quot;16/Mar/2017:15&quot; | awk &lsquo;{print $4}&rsquo; | awk -F&rsquo;:&rsquo; &lsquo;{sum[$3]++}END{for (i in sum) print i, sum[i]}&rsquo; | sort -k1  正则统计某个字符串出现的次数:
+cat log | awk &lsquo;{match($0, /(BASE_[_A-Z]+)/, a); cnt[a[1]]++} END{for (i in cnt) {print i&quot;\t&quot;cnt[i]}}&rsquo;   查找与替换  查找当前目录下所有的文件包含某字符串 bash grep str *  查找包含某字符串的所有c++文件
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/arch/how_compute_big_file_lines/">从wc -l说起---如何统计大文件的行数</a></h2>
