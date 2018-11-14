@@ -72,6 +72,22 @@
   
   
   <div>
+    <h2><a href="https://checkking.github.io/post/cs/pb_reflection/">protobuf反射机制的应用-pb转成map</a></h2>
+    <div class="post-style">
+      
+      背景 之前做的一个广告模块，要用用户请求构造特征值去请求机器学习模型模块。我这个模块与下游模块的接口之间的序列化协议是protobuf，与上游机器学习模块的序列化协议是公司内部的，而且要求将特征名，特征值都表示成字符串传给机器学习模块做在线预测。因此这当中就有一个转化需求：将protobuf转成map。
+反射相关接口 要介绍pb的反射功能，先看一个相关的UML示例图：
+各个类以及接口说明:
+Message Person是自定义的pb类型，继承自Message. MessageLite作为Message基类，更加轻量级一些。 通过Message的两个接口GetDescriptor/GetReflection，可以获取该类型对应的Descriptor/Reflection。
+Descriptor Descriptor是对message类型定义的描述，包括message的名字、所有字段的描述、原始的proto文件内容等。 本文中我们主要关注跟字段描述相关的接口，例如：
+ 获取所有字段的个数：int field_count() const 获取单个字段描述类型FieldDescriptor的接口有很多个，例如  const FieldDescriptor* field(int index) const;//根据定义顺序索引获取 const FieldDescriptor* FindFieldByNumber(int number) const;//根据tag值获取 const FieldDescriptor* FindFieldByName(const string&amp; name) const;//根据field name获取  FieldDescriptor FieldDescriptor描述message中的单个字段，例如字段名，字段属性(optional/required/repeated)等。 对于proto定义里的每种类型，都有一种对应的C++类型，例如：
+enum CppType { CPPTYPE_INT32 = 1, //TYPE_INT32, TYPE_SINT32, TYPE_SFIXED32 }  获取类型的label属性：
+enum Label { LABEL_OPTIONAL = 1, //optional LABEL_REQUIRED = 2, //required LABEL_REPEATED = 3, //repeated MAX_LABEL = 3, //Constant useful for defining lookup tables indexed by Label.
+      
+    </div>
+  </div>
+  
+  <div>
     <h2><a href="https://checkking.github.io/post/cs/pb_update_message_roles/">protobuf更新Message原则</a></h2>
     <div class="post-style">
       
@@ -170,22 +186,6 @@ $ mv access.log access.log.0 $ kill -USR1 <code>cat master.nginx.pid</code> $ sl
 access_log指令Syntax: access_log path [format [buffer=size [flush=time]] [if=condition]]; access_log path format gzip[=level] [buffer=size] [flush=time] [if=condition]; access_log syslog:server=address[,parameter=value] [format [if=condition]]; access_log off;
 默认：access_log logs/access.log combined; Context: http, server, location, if in location, limit_except
 注意path部分是支持nignx变量的，这也就意味这我们只要通过配置正确的nginx变量，就可以实现小时等级别的日志自动拆分了。
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/nginx/nginx1/">Nginx学习笔记(一)</a></h2>
-    <div class="post-style">
-      
-      运行中的Nginx进程间的关系 在正式提供服务的产品环境下，部署nginx都是使用一个master进程来管理多个worker进程， 一般情况下，worker进程的数量与服务器上的CPU核心数相等。 每个worker进程都是繁忙的，他们真正提供互联网服务，master进程则很清闲，只负责监控管理 worker进程。 Nginx是支持单进程(master进程)提供服务的，那么为什么产品环境下要按照master-worker方式配置同时 启动多个进程呢？这样做的好处主要有以下两点： - 由于master进程不会对用户请求提供服务，只用于管理真正提供服务的worker进程，所以master进程可以是唯一的，它仅专注于自己的纯管理工作，为管理员提供命令行服务，包括诸如启动服务、停止服务、重载配置文件、平滑升级程序等。master进程需要拥有较大的权限，例如，通常会利用root用户启动master进程。worker进程的权限要小于或等于master进程，这样master进程才可以完全地管理worker进程。当任意一个worker进程出现错误从而导致coredump时，master进程会立刻启动新的worker进程继续服务。 - 多个worker进程处理互联网请求不但可以提高服务的健壮性（一个worker进程出错后，其他worker进程仍然可以正常提供服务），最重要的是，这样可以充分利用现在常见的SMP多核架构，从而实现微观上真正的多核并发处理。因此，用一个进程（master进程）来处理互联网请求肯定是不合适的。另外，为什么要把worker进程数量设置得与CPU核心数量一致呢？这正是Nginx与Apache服务器的不同之处。在Apache上每个进程在一个时刻只处理一个请求，因此，如果希望Web服务器拥有并发处理的请求数更多，就要把Apache的进程或线程数设置得更多，通常会达到一台服务器拥有几百个工作进程，这样大量的进程间切换将带来无谓的系统资源消耗。而Nginx则不然，一个worker进程可以同时处理的请求数只受限于内存大小，而且在架构设计上，不同的worker进程之间处理并发请求时几乎没有同步锁的限制，worker进程通常不会进入睡眠状态，因此，当Nginx上的进程数与CPU核心数相等时（最好每一个worker进程都绑定特定的CPU核心），进程间切换的代价是最小的。
-nginx配置相关 location模块中root和alias的区别 root方式的配置:
-location /download/ { root /opt/web/html/; }  如果请求的URI是/download/index/test.html，那么web服务器将会返回服务器上/otp/web/html/download/index/test.html文件的内容。
-alias方式的配置:
-location /conf { alias /usr/local/nginx/conf; }  在URI向实际文件路径的映射过程中，已经把location后配置的/conf这部分字符串丢弃，因此，/conf/nginx.conf请求将根据alias path映射为 /usr/local/nginx/conf/nginx.conf (conf -&gt; /usr/local/nginx/conf) root可以放置到http, server, location或if块中，而alias只能放置在location块中。 alias后面还可以添加正则表达式，例如：
-location .~ ^/test/(\w+).(\w+)$ { alias /usr/local/nginx/$2/$1.$2; }  这样，请求在访问/test/nginx.conf时，nginx会返回/usr/local/nginx/conf/nginx.conf文件中的内容。
-try_files 语法： try_files path1 [path2] uri; 配置块： server、location try_files后要跟若干路径，如path1 path2&hellip;，而且最后必须要有uri参数，意义如下：尝试按照顺序访问每一个path,如果可以有效地读取，就直接返回这个path对应的文件结束请求，否则继续向下访问。如果所有path都找不到有效的文件，就重定向到最后的参数uri上。如：
-try_files /system/maintenance.html $uri $uri/index.html $uri.html @other; location @other { proxy_pass <a href="http://backend" target="_blank">http://backend</a>; }  文件操作的优化  sendfile 系统调用 语法: sendfile on|off;  默认：sendfile off;  配置快： http、server、location  可以启用Linux上的sendfile系统调用来发送文件，它减少了内核态与用户态之间的两次内存复制，这样就会从 磁盘中读取文件后直接在内核态发送到网卡设备，提高了发送文件的效率。 AIO系统调用 此配置项表示是否在FreeBSD或Linux上启用内核级别的异步文件I/O功能。注意，它与sendfile功能是互斥的。 directio 语法：directio size|off; 默认：directio off; 配置快： http、server、location  此配置项在FreeBSD和Linux系统上使用O_DIRECT选项去读取文件，缓冲区大小为size, 通常对大文件的读取速度有优化作用.
       
     </div>
   </div>

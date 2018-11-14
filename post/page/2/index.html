@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-10-20T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2018-10-21T18:47:24&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,17 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/arch/cas/">使用CAS解决一个业务问题</a></h2>
+    <div class="post-style">
+      
+      问题描述 最近项目遇到这样一个问题，有一个用mysql数据库表模拟的任务队列，生产者会往表中增加任务，消费者采用轮询的方式去获取任务。其中新加入的任务的状态为NEW(1)，当任务被拿走并处于计算中的状态为PENDING(2)，当任务处理成功的状态为SUCCESS(0)，当任务被处理失败的状态为FAILED(3)。消费者从轮询数据库，如果有NEW状态的任务，拿到任务，则修改状态为PENDING。问题是，有多个消费者同时去查询数据库表，并更新表项，存在并发问题。
+初步解决 对于数据库并发问题，一个直觉的做法就是采用加锁的办法，因此采用下面这种方式实现:
+tx := db.Begin() tx = tx.Raw(&quot;SELECT * FROM parser_job WHERE id=? FOR UPDATE&quot;, job.Id).Scan(&amp;job) if tx.RecordNotFound() { tx.Rollback() return nil, nil } if tx.Error != nil { logs.Errorf(&quot;DequeJob db query failed, err:%s&quot;, tx.Error.Error()) tx.Rollback() return nil, errors.New(tx.Error.Error()) } columns := make(map[string]interface{}, 0) columns[&quot;status&quot;] = common.STATUS_PENDING err := tx.Exec(&quot;UPDATE parser_job SET status=? WHERE id=?&quot;, common.STATUS_PENDING, job.Id).Error if err != nil { logs.Errorf(&quot;DequeJob db update failed, err:%s&quot;, err.
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/nginx/nginx8/">nginx配置管理源码解析</a></h2>
@@ -187,16 +198,6 @@ debug的用途 便于线上case追踪用，分析程序执行的每个环节。
   <div>
     <h2><a href="https://checkking.github.io/post/nginx/nginx5/">为什么nginx默认使用ET模式的epoll</a></h2>
     <div class="post-style">
-      
-    </div>
-  </div>
-  
-  <div>
-    <h2><a href="https://checkking.github.io/post/arch/nginx_event_module/">nginx事件模块分析</a></h2>
-    <div class="post-style">
-      
-      整体流程分析 先列出event模块相关定义的:
-static ngx_command_t ngx_events_commands[] = { { ngx_string(&quot;events&quot;), NGX_MAIN_CONF|NGX_CONF_BLOCK|NGX_CONF_NOARGS, ngx_events_block, 0, 0, NULL }, ngx_null_command }; static ngx_core_module_t ngx_events_module_ctx = { ngx_string(&quot;events&quot;), NULL, ngx_event_init_conf }; ngx_module_t ngx_events_module = { NGX_MODULE_V1, &amp;ngx_events_module_ctx, /* module context <em>/ ngx_events_commands, /</em> module directives <em>/ NGX_CORE_MODULE, /</em> module type <em>/ NULL, /</em> init master <em>/ NULL, /</em> init module <em>/ NULL, /</em> init process <em>/ NULL, /</em> init thread <em>/ NULL, /</em> exit thread <em>/ NULL, /</em> exit process <em>/ NULL, /</em> exit master */ NGX_MODULE_V1_PADDING };  在ngx_init_cycle函数中，有下面部分代码:
       
     </div>
   </div>
