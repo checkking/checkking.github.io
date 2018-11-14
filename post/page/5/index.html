@@ -45,7 +45,7 @@
   <meta property="og:title" content="Posts | Check King&#39;s Blog">
   <meta property="og:locale" content="en-us">
   
-  <meta property="og:updated_time" content="2017-02-13T21:07:16&#43;08:00">
+  <meta property="og:updated_time" content="2017-02-18T21:07:16&#43;08:00">
   
 
   <title>Posts | Check King&#39;s Blog</title>
@@ -70,6 +70,21 @@
   
 
   
+  
+  <div>
+    <h2><a href="https://checkking.github.io/post/nginx/nginx2/">nginx日志切分方案</a></h2>
+    <div class="post-style">
+      
+      nginx的日志切分问题一直是运维nginx时需要重点关注的。本文将简单说明下nginx支持的两种日志切分方式。
+定时任务切分 所谓的定时任务切分，是指通过定时任务（比如crontab)，发送信号给nginx，让其重新打开文件。该方法也是nginx官网上面比较推荐的,原文说明比较清楚，这里在说明下： 发送USR1 信号会让nginx主动重新打开日志文件，故操作如下：
+$ mv access.log access.log.0 $ kill -USR1 <code>cat master.nginx.pid</code> $ sleep 1 $ gzip access.log.0 # do something with access.log.0  总结 ：优点是思路较为简单，但效果明显，而且对error_log 同样适用；缺点是有外部依赖（比如 crontab)
+自切分 自切分是指让nginx自身实现日志切分功能，不依赖crontab等东西。 其主要原理是依赖access_log的强大功能&mdash;- 可以用变量定义请求的log路径。 nginx的acess_log 功能非常强大，其完整指令说明如下，这里主要说明定义日志路径的功能；关于syslog还有gzip, buffer等特性，后续再说明。
+access_log指令Syntax: access_log path [format [buffer=size [flush=time]] [if=condition]]; access_log path format gzip[=level] [buffer=size] [flush=time] [if=condition]; access_log syslog:server=address[,parameter=value] [format [if=condition]]; access_log off;
+默认：access_log logs/access.log combined; Context: http, server, location, if in location, limit_except
+注意path部分是支持nignx变量的，这也就意味这我们只要通过配置正确的nginx变量，就可以实现小时等级别的日志自动拆分了。
+      
+    </div>
+  </div>
   
   <div>
     <h2><a href="https://checkking.github.io/post/nginx/nginx1/">Nginx学习笔记(一)</a></h2>
