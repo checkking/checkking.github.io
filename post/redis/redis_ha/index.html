@@ -176,8 +176,12 @@ min-slaves-max-lag 10
 <h3 id="redis分片">redis分片</h3>
 
 <ul>
-<li>redis分片一个非官方的方案是Codis
-<img src="https://images-cdn.shimo.im/wMDjzQOUq9Iy3ktM/codis.png!thumbnail" alt="codis" /></li>
+<li>redis分片一个非官方的方案是Codis</li>
+</ul>
+
+<p><img src="https://images-cdn.shimo.im/wMDjzQOUq9Iy3ktM/codis.png!thumbnail" alt="codis" /></p>
+
+<ul>
 <li>Codis分片是通过槽位来管理的，每个槽位记录hash对应到redis client的映射关系。</li>
 <li>不同codis实例之间的槽位关系通过zookeeper或etcd来支持的。</li>
 <li>redis增加实例后，会引起codis槽位迁移, 当迁移过程中，有请求的key落在这个槽位上，先强制迁移这个槽位，再访问key。</li>
